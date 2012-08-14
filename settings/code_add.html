@@ -1,0 +1,19 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+	<title>Educational Directions</title> 
+</head> 
+<body> 
+
+<div data-role="page" id="page-codes_detail_add" data-title="Lookup Code Configuration">
+	<div id="code_add_header" data-role="header">
+	<h1>Add code</h1>
+	</div>
+	<div data-role="content">	
+	<input type="text" id="add_code" placeholder="Enter new choice value" />
+	<a href="#" data-role="button" onclick="p.Data.Codefiles.AddCode(p.ParseQueryString()['id'],$('#add_code').val())">Save</a>
+	</div>
+</div>
+
+</body>
+</html>

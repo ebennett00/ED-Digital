@@ -1,16 +1,236 @@
-var formContext;
-var dbCurrentVersion = "0.1";
-$(document).delegate("#splash","pageshow", function(){
+var Redsky = Redsky || {};
+Redsky.EDDigital = {};
+Redsky.EDDigital.Utils = {};
+Redsky.EDDigital.Data = {};
+Redsky.EDDigital.Data.Codefiles = {};
+p = Redsky.EDDigital;
+
+var dataContext;
+var dbCurrentVersion = "0.2";
+
+$(document).delegate("#page-splash","pageshow", function(){
 	UpgradeDb();
 });
-
-
-$(document).delegate("#user_config","pageinit", function(){
-	formContext = new User();
+$(document).delegate("#page-user_config","pageinit", function(){
+	dataContext = new Redsky.EDDigital.Data.User($('#user-config'));
 });
+$(document).delegate("#page-school_config","pageinit", function(){
+	dataContext = new Redsky.EDDigital.Data.School($('#school-config'));
+});
+$(document).delegate("#page-codes_config","pageinit", function(){
+	var db = new Redsky.EDDigital.Data.Database();
+	db.transaction(function(tx){
+		tx.executeSql("select * from lookupcodetables order by description;",[],function(tx,results){
+			var list = $('#codetablelist');
+			for(i=0;i<results.rows.length;i++)
+			{
+				list.append('<li><a href="settings/codes.html?id='+results.rows.item(i).id+'&title='+encodeURIComponent(results.rows.item(i).description)+'">'+results.rows.item(i).description+'</a>'+'</li>');
+			}
+			list.listview('refresh');
+		});
+	});
 
-function PasswordCheck(lookupval)
-{
+});
+$(document).delegate("#page-codes_detail","pageshow", function(){
+	var getdata = Redsky.EDDigital.ParseQueryString(),
+	codetableid = getdata['id'],
+	codetablename = getdata['title'];
+	
+	$('#code_detail_header h1').text(codetablename);
+	var db = new Redsky.EDDigital.Data.Database();
+	db.transaction(function(tx){
+		tx.executeSql("select * from lookupcodes where codeTable = ? order by description;",[codetableid],function(tx,results){
+			var list = $('#codelist');
+			list.empty();
+			for(i=0;i<results.rows.length;i++)
+			{
+				list.append('<li><a href="#">'+results.rows.item(i).description+'</a><a href="code_delete.html?id='+ results.rows.item(i).id +'&desc='+ encodeURIComponent(results.rows.item(i).description) +'" data-rel="dialog">Delete</a></li>');
+			}
+			list.listview('refresh');
+		});
+	});
+});
+$(document).delegate("#page-codes_detail_delete","pageinit", function(){
+	var search = $('#page-codes_detail_delete').attr('data-url').split('?')[1];
+	var getdata = Redsky.EDDigital.ParseQueryString(search);
+	var codeid = getdata['id'];
+	var codedesc = decodeURIComponent(getdata['desc']);
+	$('#code_delete_id').val(codeid);
+	$('#delete_confirm_value').text(codedesc);
+	Redsky.EDDigital.Data.Codefiles.GetCodeUsage(codeid);
+	
+});
+$(document).delegate("#page-walkthrough_list","pageinit", function(){
+	var db = new Redsky.EDDigital.Data.Database();
+	db.transaction(function(tx){
+		tx.executeSql("select * from walkthrough order by dt desc;",[],function(tx,results){
+			var list = $('#walkthrough_list');
+			if(results.rows.length==0)
+				list.after("<div>No saved walkthroughs</div>");
+			for(i=0;i<results.rows.length;i++)
+			{
+				list.append('<li><a href="walkthrough.html?id='+results.rows.item(i).id+'&title='+encodeURIComponent(results.rows.item(i).title)+'">'+results.rows.item(i).title+' ('+results.rows.item(i).dt+')</li>');
+			}
+			list.listview('refresh');
+		},
+		function(tx,err)
+		{
+			alert(err.message);
+		});
+	});
+
+});
+$(document).delegate("#page-walkthrough","pageinit", function(){
+	var search = $('#page-walkthrough').attr('data-url').split('?')[1];
+	var getdata = Redsky.EDDigital.ParseQueryString(search),
+	walkthroughid = getdata['id'];
+	
+	dataContext = new Redsky.EDDigital.Data.Walkthrough(walkthroughid,null,function(){
+		$('#walkthrough_header h1').text(dataContext.data.title);
+		$('#walkthrough_notes').text(dataContext.data.notes);
+		
+		var list = $('#observation_list');
+		for(var i=0;i<dataContext.data.observations.length;i++)
+			list.append('<li>'+dataContext.data.observations.id+'</li>');
+		list.listview('refresh');
+	});
+	
+});
+Redsky.EDDigital.ParseQueryString = function(instring){
+	var datapairs,
+	outdata = {},
+	currentPair;
+	
+	if(instring == null)
+		datapairs = window.location.search.substring(1).split('&');
+	else
+		datapairs = instring.split('&');
+	for(var i in datapairs)
+	{
+		currentpair = datapairs[i].split('=');
+		outdata[decodeURIComponent(currentpair[0])] = decodeURIComponent(currentpair[1]);
+	}
+	return outdata;
+}
+Redsky.EDDigital.Data.Codefiles.AddCode = function(codeTableId, codeDescription){
+	var db = new Redsky.EDDigital.Data.Database();
+		db.transaction(function(tx){
+		tx.executeSql("insert into lookupcodes (codeTable, description, dflt) values (?,?,0);",[codeTableId,codeDescription],
+		function(){$('.ui-dialog').dialog('close')},
+		null);
+	});
+}
+Redsky.EDDigital.Data.Codefiles.DeleteCode = function(codeId){
+	var db = new Redsky.EDDigital.Data.Database();
+		db.transaction(function(tx){
+		tx.executeSql("delete from lookupcodes where id = ?;",[codeId],
+		function(){$('.ui-dialog').dialog('close')},
+		null);
+	});
+}
+Redsky.EDDigital.Utils.GetUsername = function(callback){
+	Redsky.EDDigital.Utils.ExecuteScalar("select * from userconfig where id = ?",[1], function(resultrow){
+		if(resultrow.fname && resultrow.lname)
+			callback(resultrow.fname.substring(0,1)+resultrow.lname);
+		else
+			callback('Anonymous');
+	});
+}
+Redsky.EDDigital.Utils.ExecuteScalar = function(SQL, params, callback){
+	var db = new Redsky.EDDigital.Data.Database();
+	db.transaction(function(tx)
+		{
+			tx.executeSql(SQL,params,
+			function(tx, results){
+				callback(results.rows.item(0));
+			});
+		});
+}
+Redsky.EDDigital.Utils.ExecuteInsert = function(SQL, params, callback){
+	var db = new Redsky.EDDigital.Data.Database();
+	db.transaction(function(tx)
+		{
+			tx.executeSql(SQL,params,
+			function(tx, results){
+				callback(results.insertId);
+			},
+			function(tx, err){
+			alert(err.message);
+			});
+		});
+}
+Redsky.EDDigital.Utils.Date = function(){
+	var d = new Date();
+	return d.getFullYear()+"-"+
+	Redsky.EDDigital.Utils.Pad(d.getMonth()+1,2,'0',true)+"-"+
+	Redsky.EDDigital.Utils.Pad(d.getDate(),2,'0',true);
+}
+Redsky.EDDigital.Utils.Pad = function(value,length,padchar,left){
+	value = value + ""
+	while(value.length<length)
+		value = left?padchar+value:value+padchar;
+	return value;
+}
+Redsky.EDDigital.Data.Codefiles.GetCodeUsage = function(codeId, callback){
+	var db = new Redsky.EDDigital.Data.Database();
+	db.transaction(function(tx){
+			tx.executeSql("SELECT codeTable from lookupcodes where id = ?",[codeId],
+				function(tx,results){
+					var tableID = results.rows.item(0).codeTable,
+					location = {},
+					SQL;
+					
+					switch(tableID){
+					case 1:
+						SQL = "select a.title as walkthrough_name, b.description as teacher_name from (walkthrough as a left outer join (observation as b inner join lookupcodes as c on c.id = b.teacher) on a.observation = b.id) where b.teacher = ?;" 
+						break;
+					case 3:
+						SQL = "select a.title as walkthrough_name, b.description as teacher_name from (walkthrough as a left outer join (observation as b left outer join lookupcodes as c on c.id = b.teacher) on a.observation = b.id) where b.class = ?;" 
+						break;
+					case 6:
+						SQL = "select a.title as walkthrough_name, b.description as teacher_name from (walkthrough as a left outer join ((observation as b inner join observation_task as d on b.id = d.observation_id) left outer join lookupcodes as c on c.id = b.teacher) on a.observation = b.id) where d.task_id = ?;" 
+						break;
+					case 7:
+						SQL = "select a.title as walkthrough_name, b.description as teacher_name from (walkthrough as a left outer join ((observation as b inner join observation_organization as d on b.id = d.observation_id) left outer join lookupcodes as c on c.id = b.teacher) on a.observation = b.id) where d.organization_id = ?;" 
+						break;
+					case 8:
+						SQL = "select a.title as walkthrough_name, b.description as teacher_name from (walkthrough as a left outer join ((observation as b inner join observation_strategy as d on b.id = d.observation_id) left outer join lookupcodes as c on c.id = b.teacher) on a.observation = b.id) where d.strategy_id = ?;" 
+						break;
+					case 9:
+						SQL = "select a.title as walkthrough_name, b.description as teacher_name from (walkthrough as a left outer join (observation as b left outer join lookupcodes as c on c.id = b.teacher) on a.observation = b.id) where b.engagment = ?;" 
+						break;
+					}
+					
+					alert(SQL);
+				},
+			null);
+			
+	});
+}
+if (!Function.prototype.bind) {
+  Function.prototype.bind = function (oThis) {
+    if (typeof this !== "function") {
+      throw new TypeError("Function.prototype.bind - what is trying to be bound is not callable");
+    }
+ 
+    var aArgs = Array.prototype.slice.call(arguments, 1), 
+        fToBind = this, 
+        fNOP = function () {},
+        fBound = function () {
+          return fToBind.apply(this instanceof fNOP && oThis
+                                 ? this
+                                 : oThis,
+                               aArgs.concat(Array.prototype.slice.call(arguments)));
+        };
+ 
+    fNOP.prototype = this.prototype;
+    fBound.prototype = new fNOP();
+ 
+    return fBound;
+  };
+}
+
+function PasswordCheck(lookupval){
 	hashedPassword = CryptoJS.MD5(lookupval);
 	db = window.openDatabase("ED", "", "Educational Directions", 200000);
 	db.transaction(function(tx){
@@ -33,9 +253,14 @@ function PasswordCheck(lookupval)
 	});
 	return(false);
 }
-function UpgradeDb(db)
-{
+function UpgradeDb(db){
 	var status = $("#status");
+	//check for db support
+	if(!window.openDatabase)
+	{
+		status.html("Your browser does not support <a href='http://en.wikipedia.org/wiki/Web_SQL_Database' target='_blank'>WebSQL</a>.");
+		return;
+	}
 	db = window.openDatabase("ED", "", "Educational Directions", 200000);
 	if(db.version==dbCurrentVersion)
 		$.mobile.changePage("#page-password");
@@ -49,7 +274,7 @@ function UpgradeDb(db)
 			tx.executeSql("CREATE TABLE schoolconfig(id integer primary key, name text, principal text, address text, city text, state text, zip text, year text, notes text);");
 			tx.executeSql("INSERT INTO schoolconfig (id) values (1);");
 			tx.executeSql("CREATE TABLE lookupcodetables (id integer primary key, description text);");
-			var lookupCodeTables = [[1,"Teacher"],[2,"School Year"],[3,"Class"],[4,"Grade Level"],[5,"Class Period"],[6,"Student Task"],[7,"Organization"],[8,"Strategy"],[9,"Engagment"]];
+			var lookupCodeTables = [[1,"Teacher"],[2,"School Year"],[3,"Class"],[4,"Grade Level"],[5,"Class Period"],[6,"Student Task"],[7,"Organization"],[8,"Strategy"],[9,"Engagement"]];
 			for(i=0;i<lookupCodeTables.length;i++)
 				tx.executeSql("INSERT INTO lookupcodetables values (?,?);",lookupCodeTables[i]);
 			tx.executeSql("CREATE TABLE lookupcodes (id integer primary key autoincrement, codeTable integer, description text, dflt integer);");
@@ -62,7 +287,12 @@ function UpgradeDb(db)
 							   [9,"All highly engaged",0],[9,"Most engaged",0],[9,"Some engaged",0],[9,"Most off task",0],[9,"All off task",0]
 							  ];
 			for(i=0;i<lookupCodes.length;i++)
-				tx.executeSql("INSERT INTO lookupcodes (codeTable, description, dflt) values (?,?,?);",lookupCodes[i],null,null);			
+				tx.executeSql("INSERT INTO lookupcodes (codeTable, description, dflt) values (?,?,?);",lookupCodes[i],null,null);
+			tx.executeSql("CREATE TABLE walkthrough (id integer primary key autoincrement, title text, dt text, notes text);");
+			tx.executeSql("CREATE TABLE observation (id integer primary key autoincrement, walkthrough_id integer, teacher integer, class integer, time text, engagement integer);");
+			tx.executeSql("CREATE TABLE observation_task (observation_id, task_id, PRIMARY KEY(observation_id, task_id));")
+			tx.executeSql("CREATE TABLE observation_organization (observation_id, organization_id, PRIMARY KEY(observation_id, organization_id));")
+			tx.executeSql("CREATE TABLE observation_strategy (observation_id, strategy_id, PRIMARY KEY(observation_id, strategy_id));")
 		},
 		function(err){
 		alert(err.message);
@@ -71,60 +301,186 @@ function UpgradeDb(db)
 		$.mobile.changePage("#page-password");
 		});
 	}
+	else
+	{
+		status.html("Hmm, looks like you're running an old version of the database. Clear your browser's app cache and try again. (We'll perform a db upgrade when moving between live versions.)");
+	}
+}
+Redsky.EDDigital.Data.Database = function(){
+	this.db = null;
+	try
+	{
+		this.db = window.openDatabase("ED", dbCurrentVersion, "Educational Directions", 200000);
+	}
+	catch(e)
+	{
+		alert("The following error was received while processing the request: "+e.message);
+	}
+	return(this.db);
 }
 
-function User()
-{
+/*Object: Redsky.EDDigital.Data.User 
+/ Purpose: stores and retrieves user data from web db. currently,
+/          designed to support single user system
+*/
+Redsky.EDDigital.Data.User = function(form){
 	this.id = 1;
 	this.db = null;
+	this.data = null;
+	this.form = form;
 	this.init();
 };
-
-User.prototype.init = function()
-{
-	this.db = window.openDatabase("ED", dbCurrentVersion, "Educational Directions", 200000);
-	this.load();
+Redsky.EDDigital.Data.User.prototype.init = function(){
+	this.db = Redsky.EDDigital.Data.Database();
+	if(this.form) this.form.bind('selectComplete', this.setFields);
+	this.select();
 }
-
-User.prototype.load = function()
-{
+Redsky.EDDigital.Data.User.prototype.select = function(){
 	this.db.transaction(
 		function(tx)
 		{
-			tx.executeSql("SELECT * FROM userconfig where id = ?",[formContext.id], 
+			tx.executeSql("SELECT * FROM userconfig where id = ?",[this.id], 
 			function(tx, results)
 			{
-				formContext.setFields({
+				this.data={
 					"fname":results.rows.item(0).fname,
 					"lname":results.rows.item(0).lname,
 					"email":results.rows.item(0).email,
 					"phone":results.rows.item(0).phone,
 					"fax":results.rows.item(0).fax,
+					"password":results.rows.item(0).password,
 					"notes":results.rows.item(0).notes
-					});
-			});
-		})
+					};
+					this.form.trigger('selectComplete', this);
+			}.bind(this));
+		}.bind(this));
 }
-
-User.prototype.setFields = function(values)
-{
-	$("#fname").val(values.fname);
-	$("#lname").val(values.lname);
-	$("#email").val(values.email);
-	$("#phone").val(values.phone);
-	$("#fax").val(values.fax);
-	$("#notes").val(values.notes);
+Redsky.EDDigital.Data.User.prototype.setFields = function(event, ctx){
+	ctx.form.find("#fname").val(ctx.data.fname);
+	ctx.form.find("#lname").val(ctx.data.lname);
+	ctx.form.find("#email").val(ctx.data.email);
+	ctx.form.find("#phone").val(ctx.data.phone);
+	ctx.form.find("#fax").val(ctx.data.fax);
+	ctx.form.find("#hashedpassword").val(ctx.data.password);
+	ctx.form.find("#notes").val(ctx.data.notes);
 }
-
-User.prototype.save = function()
-{
+Redsky.EDDigital.Data.User.prototype.save = function(){
 	this.db.transaction(
-	function(tx)
-	{
+	function(tx){
+			var password = $("#password").val()==""?$("#hashedpassword").val():CryptoJS.MD5($("#password").val());
 			tx.executeSql("UPDATE userconfig set fname=?, lname=?, email=?, phone=?, fax=?, password=?, notes=? where id=?",
-			[$("#fname").val(),$("#lname").val(),$("#email").val(),$("#phone").val(),$("#fax").val(),CryptoJS.MD5($("#password").val()),$("#notes").val(),formContext.id],
+			[$("#fname").val(),$("#lname").val(),$("#email").val(),$("#phone").val(),$("#fax").val(),password,$("#notes").val(),dataContext.id],
 			function(){$('.ui-dialog').dialog('close')},
 			null);
 	});
 }
 
+/*Object: Redsky.EDDigital.Data.School 
+/ Purpose: stores and retrieves user data from web db. currently,
+/          designed to support single user system
+*/
+Redsky.EDDigital.Data.School = function (form){
+	this.id = 1;
+	this.db = null;
+	this.data = null;
+	this.form = form;
+	this.init();
+};
+Redsky.EDDigital.Data.School.prototype.init = function(){
+	this.db = Redsky.EDDigital.Data.Database();
+	if(this.form) this.form.bind('selectComplete', this.setFields);
+	this.select();
+}
+Redsky.EDDigital.Data.School.prototype.select = function(){
+	this.db.transaction(
+		function(tx)
+		{
+			tx.executeSql("SELECT * FROM schoolconfig where id = ?",[this.id], 
+			function(tx, results)
+			{
+				this.data={
+					"name":results.rows.item(0).name,
+					"principal":results.rows.item(0).principal,
+					"address":results.rows.item(0).address,
+					"city":results.rows.item(0).city,
+					"state":results.rows.item(0).state,
+					"zip":results.rows.item(0).zip,
+					"year":results.rows.item(0).year,
+					"notes":results.rows.item(0).notes
+					};
+					this.form.trigger('selectComplete', this);
+			}.bind(this));
+		}.bind(this));
+}
+Redsky.EDDigital.Data.School.prototype.setFields = function(event, ctx){
+	ctx.form.find("#name").val(ctx.data.name);
+	ctx.form.find("#principal").val(ctx.data.principal);
+	ctx.form.find("#address").val(ctx.data.address);
+	ctx.form.find("#city").val(ctx.data.city);
+	ctx.form.find("#state").val(ctx.data.state).selectmenu('refresh',true);
+	ctx.form.find("#zip").val(ctx.data.zip);
+	ctx.form.find("#year").val(ctx.data.year);
+	ctx.form.find("#notes").val(ctx.data.notes);
+}
+Redsky.EDDigital.Data.School.prototype.save = function(){
+	this.db.transaction(
+	function(tx){
+			tx.executeSql("UPDATE schoolconfig set name=?, principal=?, address=?, city=?, state=?, zip=?, year=?, notes=? where id=?",
+			[$("#name").val(),$("#principal").val(),$("#address").val(),$("#city").val(),$("#state").val(),$("#zip").val(),$("#year").val(),$("#notes").val(),dataContext.id],
+			function(){$('.ui-dialog').dialog('close')},
+			function(tx, err){debugger;});
+	});
+}
+
+/*Object: Redsky.EDDigital.Data.Walkthrough
+/ Purpose: stores and retrieves walkthrough data
+*/
+Redsky.EDDigital.Data.Walkthrough = function(id, form, callback){
+	this.data = {'id':id};
+	this.db = null;
+	this.form = form;
+	this.init(callback);
+};
+Redsky.EDDigital.Data.Walkthrough.prototype.init = function(callback){
+	this.db = Redsky.EDDigital.Data.Database();
+	if(!this.data.id)
+		Redsky.EDDigital.Utils.GetUsername(function(username){
+			this.insert(username, Redsky.EDDigital.Utils.Date() , "", function(){
+				this.select(callback)
+			}.bind(this));
+		}.bind(this));
+	else
+		this.select(callback);
+}
+Redsky.EDDigital.Data.Walkthrough.prototype.insert = function(title, date, notes, callback){
+	Redsky.EDDigital.Utils.ExecuteInsert("insert into walkthrough (title, dt, notes) values (?,date(?),?);",[title, date, notes],
+	function(id){ 
+		this.data.id = id; callback();
+	}.bind(this));
+}
+Redsky.EDDigital.Data.Walkthrough.prototype.select = function(callback){
+		this.db.transaction(
+		function(tx)
+		{
+			tx.executeSql("SELECT walkthrough.id as wid, title, dt, notes, observation.id as oid, lookupcodes.description as teacher FROM (walkthrough left outer join observation on walkthrough.id = observation.walkthrough_id) left outer join lookupcodes on observation.teacher = lookupcodes.id where walkthrough.id = ?",[this.data.id], 
+			function(tx, results)
+			{
+				this.data={
+					"id":results.rows.item(0).wid,
+					"title":results.rows.item(0).title,
+					"dt":results.rows.item(0).dt,
+					"notes":results.rows.item(0).notes
+					};
+				this.data.observations = [];
+				for(var i=0;i<results.rows.length;i++)
+					if(results.rows.item(i).oid)
+						this.data.observations.push({
+							"id":results.rows.item(i).oid,
+							"teacher":results.rows.item(i).teacher
+						});
+					callback();
+			}.bind(this),function(tx,err){
+				alert(err.message);
+			});
+		}.bind(this));
+}

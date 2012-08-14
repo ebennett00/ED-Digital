@@ -1,0 +1,26 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+	<title>Educational Directions</title> 
+</head> 
+<body> 
+
+<div data-role="page" id="page-codes_detail_delete" data-title="Lookup Code Configuration">
+	<div id="code_delete_header" data-role="header">
+	<h1>Confirm deletion</h1>
+	</div>
+	<div data-role="content">
+		<div class="center-wrapper">
+		<div id="delete_confirm_value"></div>
+		<div id="delete_confirm_instances"></div>
+		<input type="hidden" id="code_delete_id" />
+		<fieldset data-role="controlgroup" data-type="horizontal">
+		<a href="#" data-role="button" onclick="p.Data.Codefiles.DeleteCode($('#code_delete_id').val())">Delete</a>
+		<a href="#" data-role="button" onclick="$('.ui-dialog').dialog('close')">Cancel</a>
+		</fieldset>
+		</div>
+	</div>
+</div>
+
+</body>
+</html>
