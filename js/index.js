@@ -1,15 +1,18 @@
 var Redsky = Redsky || {};
 Redsky.EDDigital = {};
+Redsky.EDDigital.Events = {};
 Redsky.EDDigital.Utils = {};
 Redsky.EDDigital.Data = {};
 Redsky.EDDigital.Data.Codefiles = {};
-p = Redsky.EDDigital;
 
-var dataContext;
-var dbCurrentVersion = "0.2";
+
+var dataContext,pagestate={};
+var dbCurrentVersion = "0.3";
 
 $(document).delegate("#page-splash","pageshow", function(){
-	UpgradeDb();
+	UpgradeDb(function(){
+		$.mobile.changePage("#page-password");
+	});
 });
 $(document).delegate("#page-user_config","pageinit", function(){
 	dataContext = new Redsky.EDDigital.Data.User($('#user-config'));
@@ -24,7 +27,7 @@ $(document).delegate("#page-codes_config","pageinit", function(){
 			var list = $('#codetablelist');
 			for(i=0;i<results.rows.length;i++)
 			{
-				list.append('<li><a href="settings/codes.html?id='+results.rows.item(i).id+'&title='+encodeURIComponent(results.rows.item(i).description)+'">'+results.rows.item(i).description+'</a>'+'</li>');
+				list.append('<li><a href="codes.html?id='+results.rows.item(i).id+'&title='+encodeURIComponent(results.rows.item(i).description)+'">'+results.rows.item(i).description+'</a>'+'</li>');
 			}
 			list.listview('refresh');
 		});
@@ -35,7 +38,7 @@ $(document).delegate("#page-codes_detail","pageshow", function(){
 	var getdata = Redsky.EDDigital.ParseQueryString(),
 	codetableid = getdata['id'],
 	codetablename = getdata['title'];
-	
+	$('#add_code_link').attr('href','code_edit.html?tid='+codetableid);
 	$('#code_detail_header h1').text(codetablename);
 	var db = new Redsky.EDDigital.Data.Database();
 	db.transaction(function(tx){
@@ -44,7 +47,7 @@ $(document).delegate("#page-codes_detail","pageshow", function(){
 			list.empty();
 			for(i=0;i<results.rows.length;i++)
 			{
-				list.append('<li><a href="#">'+results.rows.item(i).description+'</a><a href="code_delete.html?id='+ results.rows.item(i).id +'&desc='+ encodeURIComponent(results.rows.item(i).description) +'" data-rel="dialog">Delete</a></li>');
+				list.append('<li><a href="code_edit.html?cid='+results.rows.item(i).id+'" data-rel="dialog">'+results.rows.item(i).description+'</a><a href="code_delete.html?id='+ results.rows.item(i).id +'&desc='+ encodeURIComponent(results.rows.item(i).description) +'" data-rel="dialog">Delete</a></li>');
 			}
 			list.listview('refresh');
 		});
@@ -60,16 +63,32 @@ $(document).delegate("#page-codes_detail_delete","pageinit", function(){
 	Redsky.EDDigital.Data.Codefiles.GetCodeUsage(codeid);
 	
 });
+$(document).delegate("#page-codes_detail_edit","pageinit", function(){
+	var search = $("#page-codes_detail_edit").attr('data-url').split('?')[1];
+	var getdata = Redsky.EDDigital.ParseQueryString(search);
+	var codeid = getdata['cid'];
+	var codetableid = getdata['tid'];
+	dataContext = new Redsky.EDDigital.Data.Code(codeid, codetableid, function(){
+			$('#code_description').val(dataContext.data.description);
+	});
+});
 $(document).delegate("#page-walkthrough_list","pageinit", function(){
+	pagestate.wid="";
+	$('#sort_name').click(function(){
+		Redsky.EDDigital.Utils.SortUL('walkthrough_list','data-title',true);
+	});
+	$('#sort_date').click(function(){
+		Redsky.EDDigital.Utils.SortUL('walkthrough_list','data-date',true);
+	});
 	var db = new Redsky.EDDigital.Data.Database();
 	db.transaction(function(tx){
-		tx.executeSql("select * from walkthrough order by dt desc;",[],function(tx,results){
+		tx.executeSql('select * from walkthrough order by dt desc;',[],function(tx,results){
 			var list = $('#walkthrough_list');
 			if(results.rows.length==0)
 				list.after("<div>No saved walkthroughs</div>");
 			for(i=0;i<results.rows.length;i++)
 			{
-				list.append('<li><a href="walkthrough.html?id='+results.rows.item(i).id+'&title='+encodeURIComponent(results.rows.item(i).title)+'">'+results.rows.item(i).title+' ('+results.rows.item(i).dt+')</li>');
+				list.append('<li data-title="'+results.rows.item(i).title+'" data-date="'+results.rows.item(i).dt+'"><a href="walkthrough.html?id='+results.rows.item(i).id+'&title='+encodeURIComponent(results.rows.item(i).title)+'">'+results.rows.item(i).title+' ('+results.rows.item(i).dt+')</li>');
 			}
 			list.listview('refresh');
 		},
@@ -81,21 +100,144 @@ $(document).delegate("#page-walkthrough_list","pageinit", function(){
 
 });
 $(document).delegate("#page-walkthrough","pageinit", function(){
-	var search = $('#page-walkthrough').attr('data-url').split('?')[1];
-	var getdata = Redsky.EDDigital.ParseQueryString(search),
-	walkthroughid = getdata['id'];
-	
-	dataContext = new Redsky.EDDigital.Data.Walkthrough(walkthroughid,null,function(){
-		$('#walkthrough_header h1').text(dataContext.data.title);
+	var walkthroughid = pagestate.wid;
+	if(!walkthroughid){
+		var search = $('#page-walkthrough').attr('data-url').split('?')[1];
+		var getdata = Redsky.EDDigital.ParseQueryString(search),
+		walkthroughid = getdata['id'];
+		pagestate.wid = walkthroughid;
+	}
+	dataContext = new Redsky.EDDigital.Data.Walkthrough(walkthroughid,function(){
+		$('#walkthrough_header h1').text(dataContext.data.title + ' (' +dataContext.data.dt + ')');
 		$('#walkthrough_notes').text(dataContext.data.notes);
-		
 		var list = $('#observation_list');
+		if(dataContext.data.observations.length==0)
+			list.after("<div>No saved observations</div>");
 		for(var i=0;i<dataContext.data.observations.length;i++)
-			list.append('<li>'+dataContext.data.observations.id+'</li>');
+			list.append('<li><a href="observation.html?wid='+dataContext.data.id+'&oid='+dataContext.data.observations[i].id+'" data-rel="dialog">'+dataContext.data.observations[i].teacher+'</a></li>');
 		list.listview('refresh');
 	});
 	
 });
+$(document).delegate("#page-observation","pageinit", function(){
+	$('#time').scroller({
+        preset: 'time',
+        theme: 'default',
+        display: 'modal',
+        mode: 'scroller'
+    });  
+	Redsky.EDDigital.Data.Codefiles.BuildOptionList(1,function(options){
+		$('#teacher').append(options).selectmenu('refresh');
+	});
+	Redsky.EDDigital.Data.Codefiles.BuildOptionList(3,function(options){
+		$('#class').append(options).selectmenu('refresh');
+	});
+	Redsky.EDDigital.Data.Codefiles.BuildOptionList(6,function(options){
+		$('#tasks').append(options).selectmenu('refresh');
+	});
+	Redsky.EDDigital.Data.Codefiles.BuildOptionList(7,function(options){
+		$('#organizations').append(options).selectmenu('refresh');
+	});
+	Redsky.EDDigital.Data.Codefiles.BuildOptionList(8,function(options){
+		$('#strategies').append(options).selectmenu('refresh');
+	});
+	Redsky.EDDigital.Data.Codefiles.BuildOptionList(9,function(options){
+		$('#engagement').append(options).selectmenu('refresh');
+	});
+	var search = $('#page-observation').attr('data-url').split('?')[1];
+	var getdata = Redsky.EDDigital.ParseQueryString(search),
+	walkthroughid = getdata['wid'],
+	observationid = getdata['oid'];
+	dataContext = new Redsky.EDDigital.Data.Observation(walkthroughid,observationid,function(){
+		var form = $('#observation');
+		form.find('#teacher').val(dataContext.data.teacher).selectmenu('refresh');
+		form.find('#class').val(dataContext.data.class).selectmenu('refresh');
+		form.find('#time').val(dataContext.data.time);
+		form.find('#tasks').val(Redsky.EDDigital.Utils.Split(dataContext.data.tasks)).selectmenu('refresh');
+		form.find('#organizations').val(Redsky.EDDigital.Utils.Split(dataContext.data.organizations)).selectmenu('refresh');
+		form.find('#strategies').val(Redsky.EDDigital.Utils.Split(dataContext.data.strategies)).selectmenu('refresh');
+		form.find('#engagement').val(dataContext.data.engagement).selectmenu('refresh');
+		form.find('#notes').val(dataContext.data.notes);
+	});
+});
+$(document).delegate("#page-walkthrough_properties","pageinit", function(){
+	$('#date').scroller({
+        preset: 'date',
+        theme: 'default',
+        display: 'modal',
+        mode: 'scroller'
+    });  
+
+	var search = $('#page-walkthrough_properties').attr('data-url').split('?')[1];
+	var getdata = Redsky.EDDigital.ParseQueryString(search),
+	walkthroughid = getdata['id'];
+
+	dataContext = new Redsky.EDDigital.Data.Walkthrough(walkthroughid,function(){
+		var form = $('#walkthrough_properties');
+		form.find('#title').val(dataContext.data.title);
+		form.find('#date').val(dataContext.data.dt);
+		form.find('#notes').val(dataContext.data.notes);
+	});
+});
+
+
+Redsky.EDDigital.Events.Walkthrough_save = function(){
+	dataContext.save(function(){
+		pagestate.wid=dataContext.data.id;
+		$.mobile.changePage('observation.html?wid='+dataContext.data.id,{transition:'pop',role:'dialog'});
+	});
+	return false;
+}
+Redsky.EDDigital.Events.Walkthrough_openProperties = function(){
+	dataContext.save(function(){
+		pagestate.wid=dataContext.data.id;
+		$.mobile.changePage('properties.html?id='+dataContext.data.id,{transition:'pop',role:'dialog'});
+	});
+	return false;
+}
+Redsky.EDDigital.Events.Observation_save = function(){
+	var form = $('#observation');
+	dataContext.data.teacher = form.find('#teacher').val();	
+	dataContext.data.class = form.find('#class').val();
+	dataContext.data.time = form.find('#time').val();
+	dataContext.data.tasks = form.find('#tasks').val();
+	dataContext.data.organizations = form.find('#organizations').val();
+	dataContext.data.strategies = form.find('#strategies').val();
+	dataContext.data.engagement = form.find('#engagement').val();
+	dataContext.data.notes = form.find('#notes').val();
+	dataContext.save(function(){
+		Redsky.EDDigital.Events.CloseDialog();
+		//$.mobile.changePage('walkthrough.html?id='+dataContext.data.walkthrough_id);
+	});
+	return false;
+}
+Redsky.EDDigital.Events.Code_save = function(){
+	dataContext.data.description = $('#code_description').val();
+	dataContext.save(function(){
+		Redsky.EDDigital.Events.CloseDialog();
+	});
+}
+Redsky.EDDigital.Events.Code_delete = function(){
+	Redsky.EDDigital.Data.Codefiles.DeleteCode($('#code_delete_id').val(),function(){
+	Redsky.EDDigital.Events.CloseDialog();
+	});
+}
+Redsky.EDDigital.Events.CloseDialog = function(){
+	$('.ui-dialog').dialog('close');
+}
+Redsky.EDDigital.Events.WalkthroughProperties_save = function(){
+	var form = $('#walkthrough_properties');
+	dataContext.data.title = form.find('#title').val();
+	dataContext.data.dt = Redsky.EDDigital.Utils.Date(form.find('#date').val());
+	dataContext.data.notes = form.find('#notes').val();
+	dataContext.save(function(){
+		Redsky.EDDigital.Events.CloseDialog();
+		//$.mobile.changePage('walkthrough.html?id='+dataContext.data.id);
+	});
+	return false;
+}
+
+
 Redsky.EDDigital.ParseQueryString = function(instring){
 	var datapairs,
 	outdata = {},
@@ -112,20 +254,26 @@ Redsky.EDDigital.ParseQueryString = function(instring){
 	}
 	return outdata;
 }
-Redsky.EDDigital.Data.Codefiles.AddCode = function(codeTableId, codeDescription){
-	var db = new Redsky.EDDigital.Data.Database();
-		db.transaction(function(tx){
-		tx.executeSql("insert into lookupcodes (codeTable, description, dflt) values (?,?,0);",[codeTableId,codeDescription],
-		function(){$('.ui-dialog').dialog('close')},
-		null);
-	});
-}
-Redsky.EDDigital.Data.Codefiles.DeleteCode = function(codeId){
+Redsky.EDDigital.Data.Codefiles.DeleteCode = function(codeId,callback){
 	var db = new Redsky.EDDigital.Data.Database();
 		db.transaction(function(tx){
 		tx.executeSql("delete from lookupcodes where id = ?;",[codeId],
-		function(){$('.ui-dialog').dialog('close')},
+		callback(),
 		null);
+	});
+}
+Redsky.EDDigital.Data.Codefiles.BuildOptionList = function(codeTableId, callback){
+	var db = new Redsky.EDDigital.Data.Database();
+	db.transaction(function(tx){
+		tx.executeSql("select * from lookupcodes where codeTable = ?;",[codeTableId],
+		function(tx, results){
+			var output = "";
+			for(var i=0;i<results.rows.length;i++)
+			{
+				output += '<option value="'+ results.rows.item(i).id +'">'+ results.rows.item(i).description +'</option>';
+			}
+			callback(output);
+		});
 	});
 }
 Redsky.EDDigital.Utils.GetUsername = function(callback){
@@ -159,8 +307,22 @@ Redsky.EDDigital.Utils.ExecuteInsert = function(SQL, params, callback){
 			});
 		});
 }
-Redsky.EDDigital.Utils.Date = function(){
-	var d = new Date();
+Redsky.EDDigital.Utils.ExecuteUpdate = function(SQL, params, callback){
+	var db = new Redsky.EDDigital.Data.Database();
+	db.transaction(function(tx)
+		{
+			tx.executeSql(SQL,params,
+			callback,
+			function(tx, err){
+			alert(err.message);
+			});
+		});
+}
+Redsky.EDDigital.Utils.Date = function(d){
+	if(d)
+		var d = new Date(d);
+	else
+		var d = new Date();
 	return d.getFullYear()+"-"+
 	Redsky.EDDigital.Utils.Pad(d.getMonth()+1,2,'0',true)+"-"+
 	Redsky.EDDigital.Utils.Pad(d.getDate(),2,'0',true);
@@ -170,6 +332,27 @@ Redsky.EDDigital.Utils.Pad = function(value,length,padchar,left){
 	while(value.length<length)
 		value = left?padchar+value:value+padchar;
 	return value;
+}
+Redsky.EDDigital.Utils.Split = function(instring){
+	if(instring && instring.split)
+		return(instring.split(','));
+	else
+		return([]);
+}
+Redsky.EDDigital.Utils.Join = function(inarray){
+	if(inarray && inarray.join)
+		return(inarray.join());
+	else
+		return('');
+}
+Redsky.EDDigital.Utils.SortUL = function(ulId,sortAttr, ascending){
+		$('#'+ulId+' li').sort(sort_asc).appendTo('#'+ulId);
+		
+		function sort_asc(a,b){
+			var bval = $(b).attr(sortAttr).toUpperCase();
+			var aval = $(a).attr(sortAttr).toUpperCase();
+			return bval<aval?1:-1; 
+		}
 }
 Redsky.EDDigital.Data.Codefiles.GetCodeUsage = function(codeId, callback){
 	var db = new Redsky.EDDigital.Data.Database();
@@ -253,7 +436,7 @@ function PasswordCheck(lookupval){
 	});
 	return(false);
 }
-function UpgradeDb(db){
+function UpgradeDb(callback){
 	var status = $("#status");
 	//check for db support
 	if(!window.openDatabase)
@@ -289,21 +472,16 @@ function UpgradeDb(db){
 			for(i=0;i<lookupCodes.length;i++)
 				tx.executeSql("INSERT INTO lookupcodes (codeTable, description, dflt) values (?,?,?);",lookupCodes[i],null,null);
 			tx.executeSql("CREATE TABLE walkthrough (id integer primary key autoincrement, title text, dt text, notes text);");
-			tx.executeSql("CREATE TABLE observation (id integer primary key autoincrement, walkthrough_id integer, teacher integer, class integer, time text, engagement integer);");
-			tx.executeSql("CREATE TABLE observation_task (observation_id, task_id, PRIMARY KEY(observation_id, task_id));")
-			tx.executeSql("CREATE TABLE observation_organization (observation_id, organization_id, PRIMARY KEY(observation_id, organization_id));")
-			tx.executeSql("CREATE TABLE observation_strategy (observation_id, strategy_id, PRIMARY KEY(observation_id, strategy_id));")
+			tx.executeSql("CREATE TABLE observation (id integer primary key autoincrement, walkthrough_id integer, teacher integer, class integer, time text, tasks text, organizations text, strategies text, engagement integer, notes text);");
+			callback();
 		},
 		function(err){
 		alert(err.message);
-		},
-		function(){
-		$.mobile.changePage("#page-password");
 		});
 	}
 	else
 	{
-		status.html("Hmm, looks like you're running an old version of the database. Clear your browser's app cache and try again. (We'll perform a db upgrade when moving between live versions.)");
+		status.html("Hmm, looks like you're running an old version of the development database. Clear your browser's app cache and try again. (We'll perform a db upgrade when moving between live versions.)");
 	}
 }
 Redsky.EDDigital.Data.Database = function(){
@@ -370,7 +548,7 @@ Redsky.EDDigital.Data.User.prototype.save = function(){
 			var password = $("#password").val()==""?$("#hashedpassword").val():CryptoJS.MD5($("#password").val());
 			tx.executeSql("UPDATE userconfig set fname=?, lname=?, email=?, phone=?, fax=?, password=?, notes=? where id=?",
 			[$("#fname").val(),$("#lname").val(),$("#email").val(),$("#phone").val(),$("#fax").val(),password,$("#notes").val(),dataContext.id],
-			function(){$('.ui-dialog').dialog('close')},
+			function(){Redsky.EDDigital.Events.CloseDialog();},
 			null);
 	});
 }
@@ -427,7 +605,7 @@ Redsky.EDDigital.Data.School.prototype.save = function(){
 	function(tx){
 			tx.executeSql("UPDATE schoolconfig set name=?, principal=?, address=?, city=?, state=?, zip=?, year=?, notes=? where id=?",
 			[$("#name").val(),$("#principal").val(),$("#address").val(),$("#city").val(),$("#state").val(),$("#zip").val(),$("#year").val(),$("#notes").val(),dataContext.id],
-			function(){$('.ui-dialog').dialog('close')},
+			function(){Redsky.EDDigital.Events.CloseDialog();},
 			function(tx, err){debugger;});
 	});
 }
@@ -435,41 +613,52 @@ Redsky.EDDigital.Data.School.prototype.save = function(){
 /*Object: Redsky.EDDigital.Data.Walkthrough
 / Purpose: stores and retrieves walkthrough data
 */
-Redsky.EDDigital.Data.Walkthrough = function(id, form, callback){
+Redsky.EDDigital.Data.Walkthrough = function(id, callback){
 	this.data = {'id':id};
 	this.db = null;
-	this.form = form;
 	this.init(callback);
 };
 Redsky.EDDigital.Data.Walkthrough.prototype.init = function(callback){
 	this.db = Redsky.EDDigital.Data.Database();
 	if(!this.data.id)
+	{
+		this.data.dt = Redsky.EDDigital.Utils.Date();
+		this.data.notes = '';
 		Redsky.EDDigital.Utils.GetUsername(function(username){
-			this.insert(username, Redsky.EDDigital.Utils.Date() , "", function(){
-				this.select(callback)
-			}.bind(this));
+			this.data.title = username;
+			callback();
 		}.bind(this));
+		this.data.observations = [];
+	}
 	else
 		this.select(callback);
 }
-Redsky.EDDigital.Data.Walkthrough.prototype.insert = function(title, date, notes, callback){
-	Redsky.EDDigital.Utils.ExecuteInsert("insert into walkthrough (title, dt, notes) values (?,date(?),?);",[title, date, notes],
+Redsky.EDDigital.Data.Walkthrough.prototype.save = function(callback){
+	if(this.data.id)
+		this.update(callback)
+	else
+		this.insert(callback);
+}
+Redsky.EDDigital.Data.Walkthrough.prototype.insert = function(callback){
+	Redsky.EDDigital.Utils.ExecuteInsert("insert into walkthrough (title, dt, notes) values (?,date(?),?);",
+	[this.data.title, this.data.dt, this.data.notes],
 	function(id){ 
-		this.data.id = id; callback();
+		this.data.id = id; 
+		callback(id);
 	}.bind(this));
 }
 Redsky.EDDigital.Data.Walkthrough.prototype.select = function(callback){
 		this.db.transaction(
 		function(tx)
 		{
-			tx.executeSql("SELECT walkthrough.id as wid, title, dt, notes, observation.id as oid, lookupcodes.description as teacher FROM (walkthrough left outer join observation on walkthrough.id = observation.walkthrough_id) left outer join lookupcodes on observation.teacher = lookupcodes.id where walkthrough.id = ?",[this.data.id], 
+			tx.executeSql("SELECT walkthrough.id as wid, title, dt, walkthrough.notes as wnotes, observation.id as oid, lookupcodes.description as teacher FROM (walkthrough left outer join observation on walkthrough.id = observation.walkthrough_id) left outer join lookupcodes on observation.teacher = lookupcodes.id where walkthrough.id = ?",[this.data.id], 
 			function(tx, results)
 			{
 				this.data={
 					"id":results.rows.item(0).wid,
 					"title":results.rows.item(0).title,
 					"dt":results.rows.item(0).dt,
-					"notes":results.rows.item(0).notes
+					"notes":results.rows.item(0).wnotes
 					};
 				this.data.observations = [];
 				for(var i=0;i<results.rows.length;i++)
@@ -484,3 +673,121 @@ Redsky.EDDigital.Data.Walkthrough.prototype.select = function(callback){
 			});
 		}.bind(this));
 }
+Redsky.EDDigital.Data.Walkthrough.prototype.update = function(callback){
+	Redsky.EDDigital.Utils.ExecuteUpdate("update walkthrough set title=?, dt=date(?), notes=? where id=?;",
+	[this.data.title, this.data.dt, this.data.notes, this.data.id],
+		callback);
+}
+
+/*Object: Redsky.EDDigital.Data.Observation
+/ Purpose: stores and retrieves observation data
+*/
+Redsky.EDDigital.Data.Observation = function(walkthrough_id, observation_id, callback){
+	this.data = {'walkthrough_id':walkthrough_id, 'observation_id':observation_id};
+	this.db = null;
+	this.init(callback);
+};
+Redsky.EDDigital.Data.Observation.prototype.init = function(callback){
+	this.db = Redsky.EDDigital.Data.Database();
+	if(!this.data.walkthrough_id || !this.data.observation_id)
+		setTimeout(callback,100);
+	else
+		this.select(callback);
+}
+Redsky.EDDigital.Data.Observation.prototype.save = function(callback){
+	if(this.data.id)
+		this.update(callback)
+	else
+		this.insert(callback);
+}
+Redsky.EDDigital.Data.Observation.prototype.insert = function(callback){
+	Redsky.EDDigital.Utils.ExecuteInsert("insert into observation (walkthrough_id, teacher, class, time, tasks, organizations, strategies, engagement, notes) values (?,?,?,?,?,?,?,?,?);",
+	[ this.data.walkthrough_id, this.data.teacher, this.data.class, this.data.time, Redsky.EDDigital.Utils.Join(this.data.tasks), Redsky.EDDigital.Utils.Join(this.data.organizations), Redsky.EDDigital.Utils.Join(this.data.strategies), this.data.engagement, this.data.notes],
+	function(id){ 
+		this.data.observation_id = id;
+		callback();
+	}.bind(this));
+}
+Redsky.EDDigital.Data.Observation.prototype.select = function(callback){
+		this.db.transaction(
+		function(tx)
+		{
+			tx.executeSql("SELECT * from observation where id = ?",[this.data.observation_id], 
+			function(tx, results)
+			{
+				this.data={
+					"id":results.rows.item(0).id,
+					"walkthrough_id":results.rows.item(0).walkthrough_id,
+					"teacher":results.rows.item(0).teacher,
+					"class":results.rows.item(0).class,
+					"time":results.rows.item(0).time,
+					"tasks":results.rows.item(0).tasks,
+					"organizations":results.rows.item(0).organizations,
+					"strategies":results.rows.item(0).strategies,
+					"engagement":results.rows.item(0).engagement,
+					"notes":results.rows.item(0).notes
+					};
+					callback();
+			}.bind(this),function(tx,err){
+				alert(err.message);
+			});
+		}.bind(this));
+}
+Redsky.EDDigital.Data.Observation.prototype.update = function(callback){
+	Redsky.EDDigital.Utils.ExecuteUpdate("UPDATE observation set walkthrough_id=?, teacher=?, class=?, time=?, tasks=?, organizations=?, strategies=?, engagement=?, notes=? where id=?",
+		[ this.data.walkthrough_id, this.data.teacher, this.data.class, this.data.time, Redsky.EDDigital.Utils.Join(this.data.tasks), Redsky.EDDigital.Utils.Join(this.data.organizations), Redsky.EDDigital.Utils.Join(this.data.strategies), this.data.engagement, this.data.notes, this.data.id],
+		callback);
+}
+
+/*Object: Redsky.EDDigital.Data.Code
+/ Purpose: stores and retrieves lookup code data
+*/
+Redsky.EDDigital.Data.Code = function(code_id, code_table_id, callback){
+	this.data = {'id':code_id, 'codeTable':code_table_id};
+	this.db = null;
+	this.init(callback);
+};
+Redsky.EDDigital.Data.Code.prototype.init = function(callback){
+	this.db = Redsky.EDDigital.Data.Database();
+	if(!this.data.id)
+		setTimeout(callback,100);
+	else
+		this.select(callback);
+}
+Redsky.EDDigital.Data.Code.prototype.save = function(callback){
+	if(this.data.id)
+		this.update(callback)
+	else
+		this.insert(callback);
+}
+Redsky.EDDigital.Data.Code.prototype.insert = function(callback){
+	Redsky.EDDigital.Utils.ExecuteInsert("insert into lookupcodes (codeTable, description) values (?,?);",[this.data.codeTable, this.data.description],
+	function(id){ 
+		this.data.id = id;
+		callback();
+	}.bind(this));
+}
+Redsky.EDDigital.Data.Code.prototype.select = function(callback){
+		this.db.transaction(
+		function(tx)
+		{
+			tx.executeSql("SELECT * from lookupcodes where id = ?",[this.data.id], 
+			function(tx, results)
+			{
+				this.data={
+					"id":results.rows.item(0).id,
+					"codeTable":results.rows.item(0).codeTable,
+					"description":results.rows.item(0).description
+					};
+					callback();
+			}.bind(this),function(tx,err){
+				alert(err.message);
+			});
+		}.bind(this));
+}
+Redsky.EDDigital.Data.Code.prototype.update = function(callback){
+	Redsky.EDDigital.Utils.ExecuteUpdate("UPDATE lookupcodes set codeTable=?, description=? where id=?;",
+		[this.data.codeTable, this.data.description, this.data.id],
+		callback);
+}
+

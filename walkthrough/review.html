@@ -9,10 +9,10 @@
 		<h1>Walkthroughs</h1>
 	</div>
 	<div data-role="content">
-		<div data-role="controlgroup" data-type="horizontal">
-			<a data-role="button" data-mini="true">Name</a>
-			<a data-role="button" data-mini="true" data-icon="arrow-d">Date</a>
-		</div>
+		<fieldset data-role="controlgroup" data-type="horizontal">
+			<input type="radio" name="sort" id="sort_name" data-mini="true"/><label for="sort_name">Name</label>
+			<input type="radio" name="sort" id="sort_date"  data-mini="true" /><label for="sort_date" checked="checked">Date</label>
+		</fieldset>
 		<ul id="walkthrough_list" data-role="listview" data-inset="true" data-add-back-btn="true">
 		</ul>
 		<a data-role="button" href="walkthrough.html">Create new walkthrough</a>
