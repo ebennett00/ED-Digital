@@ -4,7 +4,7 @@ Redsky.EDDigital.Events = {};
 Redsky.EDDigital.Utils = {};
 Redsky.EDDigital.Data = {};
 Redsky.EDDigital.Data.Codefiles = {};
-
+Redsky.EDDigital.Report = {};
 
 var dataContext,pagestate={};
 var dbCurrentVersion = "0.3";
@@ -179,7 +179,24 @@ $(document).delegate("#page-walkthrough_properties","pageinit", function(){
 		form.find('#notes').val(dataContext.data.notes);
 	});
 });
-
+$(document).delegate("#page-savereport","pagebeforeshow", function(){
+	var search = $('#page-savereport').attr('data-url').split('?')[1];
+	var getdata = Redsky.EDDigital.ParseQueryString(search);
+	var reporttype = getdata['id']
+	$('#reportType').val(reporttype);
+	switch(reporttype)
+	{
+		case "full":
+		case "ind":
+			$('#reportextension').html(".rtf");
+			break;
+		case "csv":
+			$('#reportextension').html(".csv");
+			break;
+	}
+	$('#SaveReportBegin').show();
+	$('#SaveReportFinished').hide();
+});
 
 Redsky.EDDigital.Events.Walkthrough_save = function(){
 	dataContext.save(function(){
@@ -236,7 +253,15 @@ Redsky.EDDigital.Events.WalkthroughProperties_save = function(){
 	});
 	return false;
 }
-
+Redsky.EDDigital.Events.ReportRun_click = function(){
+	$('#SaveReportBegin').hide('fast');
+	$.mobile.loading('show',{text:'Generating Report', textVisible:true});
+	Redsky.EDDigital.Report.GenerateReport($('#reportType').val(),$('#reportName').val(),function(loc){
+		$.mobile.loading('hide');
+		$('#SaveReportResult').html(loc);
+		$('#SaveReportFinished').show('fast');
+	});
+}
 
 Redsky.EDDigital.ParseQueryString = function(instring){
 	var datapairs,
@@ -271,6 +296,29 @@ Redsky.EDDigital.Data.Codefiles.BuildOptionList = function(codeTableId, callback
 			for(var i=0;i<results.rows.length;i++)
 			{
 				output += '<option value="'+ results.rows.item(i).id +'">'+ results.rows.item(i).description +'</option>';
+			}
+			callback(output);
+		});
+	});
+}
+Redsky.EDDigital.Data.Codefiles.Translate = function(codeIds,callback)
+{
+	var db = new Redsky.EDDigital.Data.Database();
+	var ids = codeIds.split(",");
+	SQL = ""
+	for(i=0;i<ids.length;i++)
+	{
+		if(i!=0)
+			SQL = SQL + " UNION "
+		SQL = SQL + "select description from lookupcodes where id = ?"
+	}
+	db.transaction(function(tx){
+		tx.executeSql(SQL,ids,
+		function(tx, results){
+			var output = new Array();
+			for(var i=0;i<results.rows.length;i++)
+			{
+				output.push(results.rows.item(i).description);
 			}
 			callback(output);
 		});
@@ -791,3 +839,40 @@ Redsky.EDDigital.Data.Code.prototype.update = function(callback){
 		callback);
 }
 
+
+Redsky.EDDigital.Report.FsWrite = function(filename, content, callback){
+	window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, 
+	function(fileSystem){
+		fileSystem.root.getFile(filename, {create: true},
+		function(fileEntry){
+			fileEntry.createWriter(
+			function(writer){
+				writer.write(content);
+			},
+			fail);
+		},
+		fail);
+	},
+	fail);
+}
+Redsky.EDDigital.Report.GenerateReport = function(reportType, filename, callback){
+	switch(reportType)
+	{
+		case "full":
+			$.ajax('reports/templates/fullreport.txt').done(function(reportTemplate){
+				$.ajax('reports/templates/fullreport_r.txt').done(function(rowTemplate){
+					callback(reportTemplate.replace("|TableData|",rowTemplate+rowTemplate+rowTemplate));
+				});
+			});
+			break;
+		default:
+			setTimeout(function(){callback("No report of type '"+ reportType +"' was found.");},1000);
+	}
+	
+	
+}
+function fail(error) {
+	console.log(error.code);
+}
+	
+	
