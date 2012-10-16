@@ -3,14 +3,14 @@
 	<head> 
 	<title>Educational Directions</title> 
 	<meta name="viewport" content="width=device-width, initial-scale=1"> 
-	<link rel="stylesheet" href="css/jquery.mobile-1.1.1.min.css" />
+	<link rel="stylesheet" href="css/jquery.mobile-1.2.0.min.css" />
 	<link rel="stylesheet" href="css/main.css" />
 	<link rel="stylesheet" href="css/mobiscroll-2.0.1.custom.min.css" />
+	<script src="js/date.js"></script>
 	<script src="js/cordova-2.0.0.js"></script>
 	<script src="js/jquery-1.7.2.min.js"></script>
-	<script type="text/javascript">$(document).bind("mobileinit", function(){$.mobile.page.prototype.options.addBackBtn = true;});</script>
-	<script src="js/jquery.mobile-1.2.0.min.js"></script>
 	<script src="js/index.js"></script>
+	<script src="js/jquery.mobile-1.2.0.min.js"></script>
 	<script src="js/md5.js"></script>
 	<script src="js/mobiscroll-2.0.1.custom.min.js"></script>
 </head> 
@@ -26,14 +26,224 @@
 <div data-role="page" id="page-password" data-title="Educational Directions">
 	<div class="center-wrapper">
 		<img src="images\edlogo.png"  />
-		<form method="post" data-ajax="false" onSubmit="return(PasswordCheck(this.password.value));">
+		<form>
 			<label for="password">Password</label>
 			<input type="password" name="password" id="password" />
-			<input type="submit" value="Log In" />
+			<a data-role="button" onclick="Redsky.EDDigital.Events.Login_click()">Log In</a>
 			<div id="loginMessage"></div>
 		</form>
 	</div>
 </div>
+<div data-role="page" id="page-main_menu" data-title="Educational Directions">
+	<div data-role="header">
+		<h1>Main Menu</h1>
+	</div>
+	<div data-role="content">	
+	<ul data-role="listview" data-inset="true">
+		<li>Settings
+		<ul data-role="listview" data-inset="true">
+			<li><a href="#page-user_config">User</a></li>
+			<li><a href="#page-school_config">School</a></li>
+			<li><a href="#page-codes_config">System Lookups</a></li>
+		</ul>
+		</li>
+		<li><a href="#page-walkthrough">New Walkthrough</a></li>
+		<li><a href="#page-walkthrough_list">Review Past Walkthroughs</a></li>
+		<li>Reports
+		<ul data-role="listview" data-inset="true">
+			<li><a href="#page-savereport?id=full">Full</a></li>
+			<li><a href="#page-savereport?id=csv">CSV</a></li>
+			<li><a href="#page-savereport?id=ind">Individual</a></li>
+		</ul>
+		</li>
+		<li><a href="help.html">Help</a></li>
+	</ul>
+	</div>
+</div>
+<div data-role="page" id="page-savereport" data-title="Save Report">
+	<div data-role="header">
+		<h1>Save Report</h1>
+	</div>
+	<div data-role="content">	
+		<div id="SaveReportBegin">
+			<label for="reportName">Save file as</label>
+			<div class="ui-grid-a"><div class="ui-block-a with-append"><input type="text" name="reportName" id="reportName" value="report" inline="true" /></div><div id="reportextension" class="ui-block-b append">.rtf</div></div>
+			<input type="hidden" id="reportType" />
+			<input type="button" value="Run Report" onclick="Redsky.EDDigital.Events.ReportRun_click()" />
+		</div>
+		<div id="SaveReportFinished" class="hidden"><div id="SaveReportResult"></div><input type="button" value="Done" onclick="history.back()"/></div>
+	</div>
+</div>
+<div data-role="page" id="page-observation" data-title="Observation">
+	<div id="observation_header" data-role="header">
+		<h1>Observation</h1>
+	</div>
+	<div data-role="content">
+		<form id="observation" method="post">
+			<label for="obs_teacher">Teacher:</label>
+			<select id="obs_teacher"></select>
+			<label for="obs_class">Class:</label>
+			<select id="obs_class"></select>
+			<label for="obs_time">Time:</label>
+			<input type="text" id="obs_time" />
+			<label for="obs_tasks">Tasks:</label>
+			<select id="obs_tasks" data-native-menu="false" multiple></select>
+			<label for="obs_organizations">Organizations:</label>
+			<select id="obs_organizations" data-native-menu="false" multiple></select>
+			<label for="obs_strategies">Strategies:</label>
+			<select id="obs_strategies" data-native-menu="false" multiple></select>
+			<label for="obs_engagement">Engagement:</label>
+			<select type="text" id="obs_engagement"></select>
+			<label for="obs_notes">Notes:</label>
+			<textarea rows="2" id="obs_notes" maxlength="500"></textarea>
+			<a data-role="button" href="#" onclick="Redsky.EDDigital.Events.Observation_save()" />Save</a>
+			
+		</form>
+	</div>
+</div>
+<div data-role="page" id="page-walkthrough" data-title="Walkthrough">
+	<div id="walkthrough_header" data-role="header">
+		<h1>Walkthrough</h1>
+		<a href="#" onclick="Redsky.EDDigital.Events.Walkthrough_openProperties()" data-icon="grid" class="ui-btn-right" id="properties_button">Properties</a>
+	</div>
+	<div data-role="content">
+		<div id="walkthrough_notes"></div>
+		<h3>Observations</h3>
+		<ul id="observation_list" data-role="listview" data-inset="true">
+		</ul>
+		<a id="new_observation" data-role="button" href="#" onclick="Redsky.EDDigital.Events.Walkthrough_newObservation()">Create new observation</a>
+	</div>
+</div>
+<div data-role="page" id="page-walkthrough_list" data-title="Walkthroughs">
+	<div data-role="header">
+		<h1>Walkthroughs</h1>
+	</div>
+	<div data-role="content">
+		<fieldset data-role="controlgroup" data-type="horizontal">
+			<input type="radio" name="sort" id="sort_name" data-mini="true"/><label for="sort_name">Name</label>
+			<input type="radio" name="sort" id="sort_date"  data-mini="true" /><label for="sort_date" checked="checked">Date</label>
+		</fieldset>
+		<ul id="walkthrough_list" data-role="listview" data-inset="true" data-add-back-btn="true">
+		</ul>
+		<a data-role="button" href="#page-walkthrough">Create new walkthrough</a>
+	</div>
+</div>
+<div data-role="page" id="page-walkthrough_properties" data-title="Walkthrough">
+	<div id="walkthrough_properties_header" data-role="header">
+		<h1>Walkthrough</h1>
+	</div>
+	<div data-role="content">
+		<form id="walkthrough_properties" data-ajax="false" method="post" onsubmit="return(false);">
+			<label for="wlkt_title">Title:</label>
+			<input type="text" id="wlkt_title" />
+			<label for="wlkt_date">Date:</label>
+			<input type="text" id="wlkt_date" />
+			<label for="wlkt_notes">Notes:</label>
+			<textarea rows="2" id="wlkt_notes" maxlength="500"></textarea>
+			<a data-role="button" href="#" onclick="Redsky.EDDigital.Events.WalkthroughProperties_save()">Save</a>
+		</form>
+	</div>
+</div>
+<div data-role="page" id="page-codes_detail_delete" data-title="Lookup Code Configuration">
+	<div id="code_delete_header" data-role="header">
+	<h1>Confirm deletion</h1>
+	</div>
+	<div data-role="content">
+		<div class="center-wrapper">
+		<div id="delete_confirm_value"></div>
+		<div id="delete_confirm_instances"></div>
+		<input type="hidden" id="code_delete_id" />
+		<fieldset data-role="controlgroup" data-type="horizontal">
+		<a href="#" data-role="button" onclick="Redsky.EDDigital.Events.Code_delete()">Delete</a>
+		<a href="#" data-role="button" onclick="Redsky.EDDigital.Events.CloseDialog()">Cancel</a>
+		</fieldset>
+		</div>
+	</div>
+</div>
+<div data-role="page" id="page-codes_detail_edit" data-title="Lookup Code Configuration">
+	<div id="code_edit_header" data-role="header">
+	<h1>Add/Edit code</h1>
+	</div>
+	<div data-role="content">	
+	<input type="text" id="code_description" placeholder="Enter new choice value" />
+	<a href="#" data-role="button" data-rel="dialog" onclick="Redsky.EDDigital.Events.Code_save()">Save</a>
+	</div>
+</div>
+<div data-role="page" id="page-codes_detail" data-title="Lookup Code Configuration">
+	<div id="code_detail_header" data-role="header">
+	<h1></h1>
+	</div>
+	<div data-role="content">	
+	<ul id="codelist" data-role="listview" data-inset="true" data-add-back-btn="true" data-split-icon="delete">
+	</ul>
+	<a id="add_code_link" href="#page-codes_detail_edit" data-role="button">Add</a>
+	</div>
+</div>
+<div data-role="page" id="page-codes_config" data-title="Lookup Code Configuration">
+	<div data-role="header">
+		<h1>Lookup Code Configuration</h1>
+	</div>
+	<div data-role="content">	
+	<ul id="codetablelist" data-role="listview" data-inset="true" data-add-back-btn="true">
+	</ul>
+	</div>
+</div>
+<div data-role="page" id="page-school_config" data-title="School Configuration">
+	<div data-role="header">
+		<h1>School Configuration</h1>
+	</div>
+	<div data-role="content">	
+	<form id="school-config" data-ajax="false">
+		<label for="sch_name">School Name:</label>
+		<input type="text" id="sch_name"></input>
+		<label for="sch_pricipal">Principal:</label>
+		<input type="text" id="sch_principal"></input>
+		<label for="sch_address">Address:</label>
+		<textarea id="sch_address" rows="2"></textarea>
+		<label for="sch_city">City:</label>
+		<input type="text" id="sch_city"></input>
+		<label for="sch_state">State:</label>
+		<select id="sch_state"><option value="" selected="selected">Select a State</option><option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option><option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option><option value="CT">Connecticut</option><option value="DE">Delaware</option><option value="DC">District Of Columbia</option><option value="FL">Florida</option><option value="GA">Georgia</option><option value="HI">Hawaii</option><option value="ID">Idaho</option><option value="IL">Illinois</option><option value="IN">Indiana</option><option value="IA">Iowa</option><option value="KS">Kansas</option><option value="KY">Kentucky</option><option value="LA">Louisiana</option><option value="ME">Maine</option><option value="MD">Maryland</option><option value="MA">Massachusetts</option><option value="MI">Michigan</option><option value="MN">Minnesota</option><option value="MS">Mississippi</option><option value="MO">Missouri</option><option value="MT">Montana</option><option value="NE">Nebraska</option><option value="NV">Nevada</option><option value="NH">New Hampshire</option><option value="NJ">New Jersey</option><option value="NM">New Mexico</option><option value="NY">New York</option><option value="NC">North Carolina</option><option value="ND">North Dakota</option><option value="OH">Ohio</option><option value="OK">Oklahoma</option><option value="OR">Oregon</option><option value="PA">Pennsylvania</option><option value="RI">Rhode Island</option><option value="SC">South Carolina</option><option value="SD">South Dakota</option><option value="TN">Tennessee</option><option value="TX">Texas</option><option value="UT">Utah</option><option value="VT">Vermont</option><option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option><option value="WI">Wisconsin</option><option value="WY">Wyoming</option></select>
+		<label for="sch_zip">Zip:</label>
+		<input type="text" id="sch_zip"></input>
+		<label for="sch_year">School Year:</label>
+		<input type="text" id="sch_year"></input>
+		<label for="sch_notes">Notes:</label>
+		<textarea rows="2" id="sch_notes" maxlength="500"></textarea>
+		<a data-role="button" href="#" onclick="Redsky.EDDigital.Events.School_save()">Save</a>
+	</form>
+	</div>
+</div>
+<div data-role="page" id="page-changes_saved">
+<h1>Changes Saved</h1>
+<a href="/" data-role="button">Close</a>
+</div>
+<div data-role="page" id="page-user_config" data-title="User Configuration">
+	<div data-role="header">
+		<h1>User Configuration</h1>
+	</div>
+	<div data-role="content">	
+	<form id="user-config" data-ajax="false">
+		<label for="usr_fname">First Name:</label>
+		<input type="text" id="usr_fname"></input>
+		<label for="usr_lname">Last Name:</label>
+		<input type="text" id="usr_lname"></input>
+		<label for="usr_email">Email:</label>
+		<input type="email" id="usr_email"></input>
+		<label for="usr_phone">Phone:</label>
+		<input type="tel" id="usr_phone" placeholder="(###) ###-####"></input>
+		<label for="usr_fax">Fax:</label>
+		<input type="tel" id="usr_fax" placeholder="(###) ###-####"></input>
+		<label for="usr_password">Password:</label>
+		<input type="password" id="usr_password" placeholder="Leave blank to keep current password."></input>
+		<input type="hidden" id="usr_hashedpassword" />
+		<label for="usr_notes">Notes:</label>
+		<textarea rows="2" id="usr_notes" maxlength="500"></textarea>
+		<a data-role="button" href="#" onclick="Redsky.EDDigital.Events.User_save()">Save</a>
+	</form>
+	</div>
+</div>
+
 
 </body>
 </html>
