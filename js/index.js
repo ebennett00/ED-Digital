@@ -17,7 +17,11 @@ var dataContext,pagestate={};
 var dbCurrentVersion = "0.4";
 
 Redsky.EDDigital.Literals.RTFLineBreak = " \\par ";
-Redsky.EDDigital.Literals.OutputTimeFormat = "H:mm tt";
+Redsky.EDDigital.Literals.CSVSubvalueMark = "|";
+Redsky.EDDigital.Literals.OutputTimeFormat = "h:mm tt";
+Redsky.EDDigital.Literals.OutputDateFormat = "yyyy MMM d";  
+Redsky.EDDigital.Literals.MobidateFormat = "MM/dd/yyyy";
+Redsky.EDDigital.Literals.StorageDateFormat = "yyyy-MM-dd";
 
 $(document).delegate("#page-splash","pageshow", function(){
 	Redsky.EDDigital.Data.UpgradeDb(function(){
@@ -119,7 +123,7 @@ $(document).delegate("#page-walkthrough_list","pagebeforeshow", function(){
 				list.append("<li>No saved walkthroughs</li>");
 			for(i=0;i<results.rows.length;i++)
 			{
-				list.append('<li data-title="'+results.rows.item(i).title+'" data-date="'+results.rows.item(i).dt+'"><a href="#page-walkthrough?id='+results.rows.item(i).id+'&title='+encodeURIComponent(results.rows.item(i).title)+'">'+results.rows.item(i).title+' ('+results.rows.item(i).dt+')</li>');
+				list.append('<li data-title="'+results.rows.item(i).title+'" data-date="'+results.rows.item(i).dt+'"><a href="#page-walkthrough?id='+results.rows.item(i).id+'&title='+encodeURIComponent(results.rows.item(i).title)+'">'+results.rows.item(i).title+' ('+(Date.parse(results.rows.item(i).dt)||Date.today()).toString(Redsky.EDDigital.Literals.OutputDateFormat)+')</li>');
 			}
 			list.listview('refresh');
 		},
@@ -139,7 +143,7 @@ $(document).delegate("#page-walkthrough","pagebeforeshow", function(){
 		pagestate.wid = walkthroughid;
 	}
 	dataContext = new Redsky.EDDigital.Data.Walkthrough(walkthroughid,function(){
-		$('#walkthrough_header h1').text(dataContext.data.title + ' (' +dataContext.data.dt + ')');
+		$('#walkthrough_header h1').text(dataContext.data.title + ' (' +(Date.parse(dataContext.data.dt)||Date.today()).toString(Redsky.EDDigital.Literals.OutputDateFormat) + ')');
 		$('#walkthrough_notes').text(dataContext.data.notes);
 		var list = $('#observation_list');
 		list.empty();
@@ -183,7 +187,7 @@ $(document).delegate("#page-observation","pagebeforeshow", function(){
 	dataContext = new Redsky.EDDigital.Data.Observation(walkthroughid,observationid,function(){
 		var form = $('#observation');
 		form.find('#obs_teacher').val(dataContext.data.teacher).selectmenu('refresh');
-		form.find('#obs_class').val(dataContext.data.class).selectmenu('refresh');
+		form.find('#obs_class').val(dataContext.data.classname).selectmenu('refresh');
 		form.find('#obs_time').val(dataContext.data.time?Date.parse(dataContext.data.time).toString(Redsky.EDDigital.Literals.OutputTimeFormat):'');
 		form.find('#obs_tasks').val(Redsky.EDDigital.Utils.Split(dataContext.data.tasks)).selectmenu('refresh');
 		form.find('#obs_organizations').val(Redsky.EDDigital.Utils.Split(dataContext.data.organizations)).selectmenu('refresh');
@@ -207,7 +211,7 @@ $(document).delegate("#page-walkthrough_properties","pagebeforeshow", function()
 	dataContext = new Redsky.EDDigital.Data.Walkthrough(walkthroughid,function(){
 		var form = $('#walkthrough_properties');
 		form.find('#wlkt_title').val(dataContext.data.title);
-		form.find('#wlkt_date').val(dataContext.data.dt);
+		form.find('#wlkt_date').val((Date.parse(dataContext.data.dt)||Date.today()).toString(Redsky.EDDigital.Literals.MobidateFormat));
 		form.find('#wlkt_notes').val(dataContext.data.notes);
 	});
 });
@@ -219,7 +223,6 @@ $(document).delegate("#page-savereport","pagebeforeshow", function(){
 	switch(reporttype)
 	{
 		case "full":
-		case "ind":
 			$('#reportextension').html(".rtf");
 			break;
 		case "csv":
@@ -285,7 +288,7 @@ Redsky.EDDigital.Events.Observation_save = function(){
 	var form = $('#observation');
 	var temp;
 	dataContext.data.teacher = form.find('#obs_teacher').val();	
-	dataContext.data.class = form.find('#obs_class').val();
+	dataContext.data.classname = form.find('#obs_class').val();
 	temp = form.find('#obs_time').val();
 	dataContext.data.time = temp?Date.parse(temp).toString('HH:mm:ss'):'';
 	dataContext.data.tasks = form.find('#obs_tasks').val();
@@ -312,7 +315,7 @@ Redsky.EDDigital.Events.Code_delete = function(){
 Redsky.EDDigital.Events.WalkthroughProperties_save = function(){
 	var form = $('#walkthrough_properties');
 	dataContext.data.title = form.find('#wlkt_title').val();
-	dataContext.data.dt = Redsky.EDDigital.Utils.Date(form.find('#wlkt_date').val());
+	dataContext.data.dt = (Date.parse(form.find('#wlkt_date').val())||Date.today()).toString(Redsky.EDDigital.Literals.StorageDateFormat);
 	dataContext.data.notes = form.find('#wlkt_notes').val();
 	dataContext.save(function(){
 		history.back();
@@ -322,13 +325,43 @@ Redsky.EDDigital.Events.WalkthroughProperties_save = function(){
 Redsky.EDDigital.Events.ReportRun_click = function(){
 	$('#SaveReportBegin').hide('fast');
 	$.mobile.loading('show',{text:'Generating Report', textVisible:true});
-	Redsky.EDDigital.Report.GenerateReport($('#reportType').val(),{},$('#reportName').val(),function(result){
+	Redsky.EDDigital.Report.GenerateReport($('#reportType').val(),{},$('#reportName').val(),function(result, filenameandpath, filename, dataURI){
 		$.mobile.loading('hide');
 		$('#SaveReportResult').html(result);
+		if(filename)
+			$('#SaveReportResult').append('<a href="'+ dataURI +'" target="_blank" download="'+filename+'">'+filenameandpath+'</a>');
 		$('#SaveReportFinished').show('fast');
 		});
 }
-
+Redsky.EDDigital.Events.Walkthrough_delete = function(){
+	dataContext.delete(function(){
+		$.mobile.changePage("#page-walkthrough_list");
+	});
+}
+Redsky.EDDigital.Events.Exec = function(){
+	var output = $('#console_out');
+	var input = $('#console_cmd');
+	
+	var db = Redsky.EDDigital.Data.Database();
+	var outstring ="";
+	db.transaction(function(tx){
+		tx.executeSql(input.val(),[],
+		function(tx, results){
+		outstring = "Success:\n\n"
+		for(var i=0;i<results.rows.length;i++)
+		{
+			for(var j in results.rows.item(i))
+				outstring += j + "  -   " + results.rows.item(i)[j]+'\n';
+			outstring += '\n\n';
+		}
+		output.val(outstring);
+		},
+		function(tx,err){
+			outstring = "Failure:\n\n"+err
+		});
+	});
+	
+}
 Redsky.EDDigital.ParseQueryString = function(instring){
 	var datapairs = [],
 	outdata = {},
@@ -471,15 +504,6 @@ Redsky.EDDigital.Utils.ExecuteUpdate = function(SQL, params, callback){
 			alert(err.message);
 			});
 		});
-}
-Redsky.EDDigital.Utils.Date = function(d){
-	if(d)
-		var d = new Date(d);
-	else
-		var d = new Date();
-	return d.getFullYear()+"-"+
-	Redsky.EDDigital.Utils.Pad(d.getMonth()+1,2,'0',true)+"-"+
-	Redsky.EDDigital.Utils.Pad(d.getDate(),2,'0',true);
 }
 Redsky.EDDigital.Utils.Pad = function(value,length,padchar,left){
 	value = value + ""
@@ -682,7 +706,7 @@ Redsky.EDDigital.Data.Walkthrough.prototype.init = function(callback){
 	this.db = Redsky.EDDigital.Data.Database();
 	if(!this.data.id)
 	{
-		this.data.dt = Redsky.EDDigital.Utils.Date();
+		this.data.dt = Date();
 		this.data.notes = '';
 		Redsky.EDDigital.Utils.GetUsername(function(username){
 			this.data.title = username;
@@ -700,7 +724,7 @@ Redsky.EDDigital.Data.Walkthrough.prototype.save = function(callback){
 		this.insert(callback);
 }
 Redsky.EDDigital.Data.Walkthrough.prototype.insert = function(callback){
-	Redsky.EDDigital.Utils.ExecuteInsert("insert into walkthrough (title, dt, notes) values (?,date(?),?);",
+	Redsky.EDDigital.Utils.ExecuteInsert("insert into walkthrough (title, dt, notes) values (?,?,?);",
 	[this.data.title, this.data.dt, this.data.notes],
 	function(id){ 
 		this.data.id = id; 
@@ -734,9 +758,19 @@ Redsky.EDDigital.Data.Walkthrough.prototype.select = function(callback){
 		}.bind(this));
 }
 Redsky.EDDigital.Data.Walkthrough.prototype.update = function(callback){
-	Redsky.EDDigital.Utils.ExecuteUpdate("update walkthrough set title=?, dt=date(?), notes=? where id=?;",
+	Redsky.EDDigital.Utils.ExecuteUpdate("update walkthrough set title=?, dt=?, notes=? where id=?;",
 	[this.data.title, this.data.dt, this.data.notes, this.data.id],
 		callback());
+}
+Redsky.EDDigital.Data.Walkthrough.prototype.delete = function(callback){
+	this.db.transaction(function(tx)
+		{
+			tx.executeSql("delete from observation where walkthrough_id = ?",[this.data.id]);
+			tx.executeSql("delete from walkthrough where id = ?",[this.data.id]);
+		}.bind(this),
+		null,
+		callback);
+	
 }
 
 /*Object: Redsky.EDDigital.Data.Observation
@@ -762,7 +796,7 @@ Redsky.EDDigital.Data.Observation.prototype.save = function(callback){
 }
 Redsky.EDDigital.Data.Observation.prototype.insert = function(callback){
 	Redsky.EDDigital.Utils.ExecuteInsert("insert into observation (walkthrough_id, teacher, class, time, tasks, organizations, strategies, engagement, notes) values (?,?,?,?,?,?,?,?,?);",
-	[ this.data.walkthrough_id, this.data.teacher, this.data.class, this.data.time, Redsky.EDDigital.Utils.Join(this.data.tasks), Redsky.EDDigital.Utils.Join(this.data.organizations), Redsky.EDDigital.Utils.Join(this.data.strategies), this.data.engagement, this.data.notes],
+	[ this.data.walkthrough_id, this.data.teacher, this.data.classname, this.data.time, Redsky.EDDigital.Utils.Join(this.data.tasks), Redsky.EDDigital.Utils.Join(this.data.organizations), Redsky.EDDigital.Utils.Join(this.data.strategies), this.data.engagement, this.data.notes],
 	function(id){ 
 		this.data.observation_id = id;
 		callback();
@@ -779,7 +813,7 @@ Redsky.EDDigital.Data.Observation.prototype.select = function(callback){
 					"id":results.rows.item(0).id,
 					"walkthrough_id":results.rows.item(0).walkthrough_id,
 					"teacher":results.rows.item(0).teacher,
-					"class":results.rows.item(0).class,
+					"classname":results.rows.item(0).class,
 					"time":results.rows.item(0).time,
 					"tasks":results.rows.item(0).tasks,
 					"organizations":results.rows.item(0).organizations,
@@ -795,7 +829,7 @@ Redsky.EDDigital.Data.Observation.prototype.select = function(callback){
 }
 Redsky.EDDigital.Data.Observation.prototype.update = function(callback){
 	Redsky.EDDigital.Utils.ExecuteUpdate("UPDATE observation set walkthrough_id=?, teacher=?, class=?, time=?, tasks=?, organizations=?, strategies=?, engagement=?, notes=? where id=?",
-		[ this.data.walkthrough_id, this.data.teacher, this.data.class, this.data.time, Redsky.EDDigital.Utils.Join(this.data.tasks), Redsky.EDDigital.Utils.Join(this.data.organizations), Redsky.EDDigital.Utils.Join(this.data.strategies), this.data.engagement, this.data.notes, this.data.id],
+		[ this.data.walkthrough_id, this.data.teacher, this.data.classname, this.data.time, Redsky.EDDigital.Utils.Join(this.data.tasks), Redsky.EDDigital.Utils.Join(this.data.organizations), Redsky.EDDigital.Utils.Join(this.data.strategies), this.data.engagement, this.data.notes, this.data.id],
 		callback);
 }
 
@@ -855,15 +889,15 @@ Redsky.EDDigital.Data.Code.prototype.update = function(callback){
 /*Object: Redsky.EDDigital.Report
 / Purpose: enables data output to filesystem in a variety of formats
 */
-Redsky.EDDigital.Report.FsWrite = function(filename, content, callback){
+Redsky.EDDigital.Report.FsWrite = function(filename, content, successcallback, failcallback){
 	window.requestFileSystem(LocalFileSystem.PERSISTENT, 0, 
 	function(fileSystem){
 		fileSystem.root.getFile(filename, {create: true},
 		function(fileEntry){
 			fileEntry.createWriter(
 			function(writer){
-				writer.onwrite = function(){callback("Report was successfully exported to the following location:<h3>" +fileEntry.fullPath+"</h3>");}
-				writer.onerror = function(err){console.log(err);};
+				writer.onwrite = function(){successcallback(fileEntry.fullPath);}
+				writer.onerror = function(err){failcallback(err);};
 				writer.write(content);
 			},
 			fail);
@@ -872,22 +906,42 @@ Redsky.EDDigital.Report.FsWrite = function(filename, content, callback){
 	},
 	fail);
 }
-Redsky.EDDigital.Report.GenerateReport = function(reportType, parameters, filename, callback){
+Redsky.EDDigital.Report.GenerateReport = function(reportType, parameters, basename, callback){
 	var merger = null;
 	switch(reportType)
 	{
 		case "full":
 			merger = new Redsky.EDDigital.Report.Merger(reportType,parameters,
 				function(){
-					console.log("All tokens returned... right?");
 					$.ajax({url:'reports/templates/fullreport.txt'}).done(function(reportTemplate){
 						$.ajax({url:'reports/templates/fullreport_r.txt'}).done(function(rowTemplate){
 							merger.AddSubdocument("ObservationRows", rowTemplate);
 							//calling merger.Merge from within the anon func alows the Merge function to use the correct context
 							var output = reportTemplate.replace(/<-([\w]*)->/g,function(match,p1){return(merger.Merge(match,p1));}); 
-							Redsky.EDDigital.Report.FsWrite(filename+".rtf",output, callback);
+							var filename = basename+".rtf";
+							Redsky.EDDigital.Report.FsWrite(filename,output, function(filenameandpath){
+								var msg = "<h3>The report was successfully generated:<h3>"
+								var dataURI = "data:application/rtf;charset=UTF-8,"+encodeURIComponent(output);
+								callback(msg,filenameandpath,filename,dataURI);
+							},
+							callback);
 							});
 						});
+				},
+				function(msg){console.log("Something has gone terribly wrong: "+msg);},
+				function(msg){console.log("Making Progress: "+msg);});
+			break;
+		case "csv":
+			merger = new Redsky.EDDigital.Report.Merger(reportType,parameters,
+				function(){
+					var output = merger.ExportCSV();
+					var filename = basename+".csv";
+					Redsky.EDDigital.Report.FsWrite(filename,output,function(filenameandpath){
+						var msg = "<h3>The report was successfully generated:<h3>"
+						var dataURI = "data:text/csv;charset=UTF-8,"+encodeURIComponent(output);
+						callback(msg,filenameandpath,filename,dataURI);
+					},
+					callback);
 				},
 				function(msg){console.log("Something has gone terribly wrong: "+msg);},
 				function(msg){console.log("Making Progress: "+msg);});
@@ -897,7 +951,9 @@ Redsky.EDDigital.Report.GenerateReport = function(reportType, parameters, filena
 	}
 }
 Redsky.EDDigital.Report.Merger = function(reporttype,parameters,readycallback,failedcallback,progresscallback){
-	this.dataList = {"Today":Redsky.EDDigital.Utils.Date()};
+	this.dataList = {"Today":Date.today().toString(Redsky.EDDigital.Literals.OutputDateFormat),
+					 "Year":Date.today().toString('yyyy')
+	};
 	this.subdocuments = [];
 	var db = Redsky.EDDigital.Data.Database();
 	switch(reporttype)
@@ -909,6 +965,7 @@ Redsky.EDDigital.Report.Merger = function(reporttype,parameters,readycallback,fa
 			tokens[1] = new $.Deferred;
 			tokens[2] = new $.Deferred;
 			tokens[3] = new $.Deferred;
+			tokens[4] = new $.Deferred;
 
 			db.transaction(function(tx){
 				tx.executeSql("select * from schoolconfig;",[],
@@ -963,6 +1020,19 @@ Redsky.EDDigital.Report.Merger = function(reporttype,parameters,readycallback,fa
 				progresscallback("Done loading translate table.");
 				tokens[3].resolve();
 				});
+			db.transaction(function(tx){
+				tx.executeSql("select min(dt) as WalkthroughFirst, max(dt) as WalkthroughLast from walkthrough;",[],
+					function(tx, results)
+					{
+						var f = Date.parse(results.rows.item(0).WalkthroughFirst).toString(Redsky.EDDigital.Literals.OutputDateFormat);
+						var l = Date.parse(results.rows.item(0).WalkthroughLast).toString(Redsky.EDDigital.Literals.OutputDateFormat);
+						
+						this.dataList.WalkthroughDate = f==l?f:f==null?l:l==null?f:f+" - "+l;
+						progresscallback("Done loading date range.");
+						tokens[4].resolve();
+					}.bind(this))
+			}.bind(this));
+			
 			
 			//wait for the jquery deferreds to return before proceeding
 			$.when.apply(null,tokens)
@@ -972,6 +1042,53 @@ Redsky.EDDigital.Report.Merger = function(reporttype,parameters,readycallback,fa
 					this.dataList.ObservationRows[i].StudentTask = translator.Translate(this.dataList.ObservationRows[i].StudentTask).join(Redsky.EDDigital.Literals.RTFLineBreak);
 					this.dataList.ObservationRows[i].Organization = translator.Translate(this.dataList.ObservationRows[i].Organization).join(Redsky.EDDigital.Literals.RTFLineBreak);
 					this.dataList.ObservationRows[i].Strategy = translator.Translate(this.dataList.ObservationRows[i].Strategy).join(Redsky.EDDigital.Literals.RTFLineBreak);
+				}
+				readycallback()
+			}.bind(this))
+			.fail(function(){failedcallback("One or more data fetches failed.");});
+
+			break;
+		case "csv":
+			var tokens = [];
+			tokens[0] = new $.Deferred;
+			tokens[1] = new $.Deferred;
+			
+			db.transaction(function(tx){
+				tx.executeSql("select w.title as wtitle, w.dt, o.time, t.description as teacher, c.description as classname, o.tasks, o.organizations, o.strategies, e.description as engagement from observation as o left join walkthrough as w on w.id = o.walkthrough_id left join lookupcodes as t on o.teacher = t.id left join lookupcodes as c on o.class = c.id left join lookupcodes as e on o.engagement = e.id order by w.dt, o.time;",[],
+					function(tx, results)
+					{
+						this.dataList.ObservationRows = [];
+						for(var i=0;i<results.rows.length;i++)
+						{
+							this.dataList.ObservationRows[i] = {};
+							this.dataList.ObservationRows[i].Walkthrough = results.rows.item(i).wtitle;
+							this.dataList.ObservationRows[i].Date = results.rows.item(i).dt?Date.parse(results.rows.item(i).dt).toString(Redsky.EDDigital.Literals.OutputDateFormat):'';
+							this.dataList.ObservationRows[i].Teacher = results.rows.item(i).teacher;
+							this.dataList.ObservationRows[i].Class = results.rows.item(i).classname;
+							this.dataList.ObservationRows[i].Time = results.rows.item(i).time?Date.parse(results.rows.item(i).time).toString(Redsky.EDDigital.Literals.OutputTimeFormat):'';
+							this.dataList.ObservationRows[i].StudentTask = results.rows.item(i).tasks;
+							this.dataList.ObservationRows[i].Organization = results.rows.item(i).organizations;
+							this.dataList.ObservationRows[i].Strategy = results.rows.item(i).strategies;
+							this.dataList.ObservationRows[i].Engagement = results.rows.item(i).engagement;
+						}
+						progresscallback("Done loading all observations.");
+						tokens[0].resolve();
+					}.bind(this))
+			}.bind(this));
+			var translator = new Redsky.EDDigital.Data.Codefiles.Translator(function(){
+				progresscallback("Done loading translate table.");
+				tokens[1].resolve();
+				});
+			
+			
+			//wait for the jquery deferreds to return before proceeding
+			$.when.apply(null,tokens)
+			.done(function(){
+				for(var i=0;i<this.dataList.ObservationRows.length;i++)
+				{
+					this.dataList.ObservationRows[i].StudentTask = translator.Translate(this.dataList.ObservationRows[i].StudentTask).join(Redsky.EDDigital.Literals.CSVSubvalueMark);
+					this.dataList.ObservationRows[i].Organization = translator.Translate(this.dataList.ObservationRows[i].Organization).join(Redsky.EDDigital.Literals.CSVSubvalueMark);
+					this.dataList.ObservationRows[i].Strategy = translator.Translate(this.dataList.ObservationRows[i].Strategy).join(Redsky.EDDigital.Literals.CSVSubvalueMark);
 				}
 				readycallback()
 			}.bind(this))
@@ -990,7 +1107,7 @@ Redsky.EDDigital.Report.Merger.prototype.Merge = function(match,p1){
 		for(var i=0;i<this.dataList[p1].length;i++)
 			subdocresult += this.subdocuments[subdocname].replace(/<-([\w]*)->/g,
 			function(match,keyword){
-				var result = keyword in this.dataList[subdocname][i]?this.dataList[subdocname][i][keyword]:'dammit';
+				var result = keyword in this.dataList[subdocname][i]?this.dataList[subdocname][i][keyword]:'Tag not found';
 				return(result);
 			}.bind(this));
 		return subdocresult;
@@ -1004,8 +1121,24 @@ Redsky.EDDigital.Report.Merger.prototype.Merge = function(match,p1){
 Redsky.EDDigital.Report.Merger.prototype.AddSubdocument = function(subDocName, content){
 	this.subdocuments[subDocName] = content;
 }
+Redsky.EDDigital.Report.Merger.prototype.ExportCSV = function(){
+	var output = "";
+	var headerline = [];
+	for(var i=0;i<this.dataList.ObservationRows.length;i++){
+		var currentLine = [];
+		for(var j in this.dataList.ObservationRows[i]){
+			if(i==0) headerline.push(j.prepareCSV());
+			currentLine.push(this.dataList.ObservationRows[i][j].prepareCSV());
+		}
+		if(i==0) output+=headerline.join(",") + '\n'; 
+		output+= currentLine.join(",") + '\n';
+	}
+	return(output);
+}
 function fail(error) {
 	console.log(error.code);
 }
-	
+String.prototype.prepareCSV = function(){
+	return('"' + this.replace(/"/g,'""') + '"');
+}
 	

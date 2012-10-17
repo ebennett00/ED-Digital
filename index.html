@@ -51,9 +51,8 @@
 		<li><a href="#page-walkthrough_list">Review Past Walkthroughs</a></li>
 		<li>Reports
 		<ul data-role="listview" data-inset="true">
-			<li><a href="#page-savereport?id=full">Full</a></li>
-			<li><a href="#page-savereport?id=csv">CSV</a></li>
-			<li><a href="#page-savereport?id=ind">Individual</a></li>
+			<li><a href="#page-savereport?id=full">All observations</a></li>
+			<li><a href="#page-savereport?id=csv">Export CSV</a></li>
 		</ul>
 		</li>
 		<li><a href="help.html">Help</a></li>
@@ -131,6 +130,7 @@
 <div data-role="page" id="page-walkthrough_properties" data-title="Walkthrough">
 	<div id="walkthrough_properties_header" data-role="header">
 		<h1>Walkthrough</h1>
+		<a href="#page-walkthrough_delete" id="wlkt_delete" class="ui-btn-right" data-icon="delete" data-rel="dialog">Delete</a>
 	</div>
 	<div data-role="content">
 		<form id="walkthrough_properties" data-ajax="false" method="post" onsubmit="return(false);">
@@ -155,7 +155,21 @@
 		<input type="hidden" id="code_delete_id" />
 		<fieldset data-role="controlgroup" data-type="horizontal">
 		<a href="#" data-role="button" onclick="Redsky.EDDigital.Events.Code_delete()">Delete</a>
-		<a href="#" data-role="button" onclick="Redsky.EDDigital.Events.CloseDialog()">Cancel</a>
+		<a href="#" data-role="button" onclick="$('.ui-dialog').dialog('close');">Cancel</a>
+		</fieldset>
+		</div>
+	</div>
+</div>
+<div data-role="page" id="page-walkthrough_delete" data-title="Delete Walkthrough">
+	<div id="walkthrough_delete_header" data-role="header">
+	<h1>Confirm deletion</h1>
+	</div>
+	<div data-role="content">
+		<div class="center-wrapper">
+		Are you sure you want to delete this walkthrough and all of its associated observations?
+		<fieldset data-role="controlgroup" data-type="horizontal">
+		<a href="#" data-role="button" onclick="Redsky.EDDigital.Events.Walkthrough_delete()">Delete</a>
+		<a href="#" data-role="button" onclick="$('.ui-dialog').dialog('close');">Cancel</a>
 		</fieldset>
 		</div>
 	</div>
@@ -243,7 +257,18 @@
 	</form>
 	</div>
 </div>
-
+<div data-role="page" id="page-dev_console" data-title="SQL Console">
+	<div data-role="header">
+		<h1>SQLite Console</h1>
+	</div>
+	<div data-role="content">
+	Out:
+		<textarea id="console_out"></textarea>
+	Cmd:
+		<textarea id="console_cmd"></textarea>
+		<a href="#" data-role="button" onclick="Redsky.EDDigital.Events.Exec();">Exec</a>
+	</div>
+</div>
 
 </body>
 </html>
