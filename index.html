@@ -26,12 +26,12 @@
 <div data-role="page" id="page-password" data-title="Educational Directions">
 	<div class="center-wrapper">
 		<img src="images\edlogo.png"  />
-		<form>
+			<form id="form-login">
 			<label for="password">Password</label>
 			<input type="password" name="password" id="password" />
-			<a data-role="button" onclick="Redsky.EDDigital.Events.Login_click()">Log In</a>
+			<input type="submit" value="Log In" />
+			</form>
 			<div id="loginMessage"></div>
-		</form>
 	</div>
 </div>
 <div data-role="page" id="page-main_menu" data-title="Educational Directions">
@@ -65,10 +65,12 @@
 	</div>
 	<div data-role="content">	
 		<div id="SaveReportBegin">
-			<label for="reportName">Save file as</label>
-			<div class="ui-grid-a"><div class="ui-block-a with-append"><input type="text" name="reportName" id="reportName" value="report" inline="true" /></div><div id="reportextension" class="ui-block-b append">.rtf</div></div>
-			<input type="hidden" id="reportType" />
-			<input type="button" value="Run Report" onclick="Redsky.EDDigital.Events.ReportRun_click()" />
+			<form id="form-savereport">
+				<label for="reportName">Save file as</label>
+				<div class="ui-grid-a"><div class="ui-block-a with-append"><input type="text" name="reportName" id="reportName" value="report" inline="true" /></div><div id="reportextension" class="ui-block-b append">.rtf</div></div>
+				<input type="hidden" id="reportType" />
+				<input type="submit" value="Run Report" />
+			</form>
 		</div>
 		<div id="SaveReportFinished" class="hidden"><div id="SaveReportResult"></div><input type="button" value="Done" onclick="history.back()"/></div>
 	</div>
@@ -78,13 +80,13 @@
 		<h1>Observation</h1>
 	</div>
 	<div data-role="content">
-		<form id="observation" method="post">
+		<form id="form-observation" method="post">
 			<label for="obs_teacher">Teacher:</label>
 			<select id="obs_teacher"></select>
 			<label for="obs_class">Class:</label>
 			<select id="obs_class"></select>
 			<label for="obs_time">Time:</label>
-			<input type="text" id="obs_time" />
+			<input type="text" id="obs_time" class="preventdefaultfocus"/>
 			<label for="obs_tasks">Tasks:</label>
 			<select id="obs_tasks" data-native-menu="false" multiple></select>
 			<label for="obs_organizations">Organizations:</label>
@@ -95,8 +97,7 @@
 			<select type="text" id="obs_engagement"></select>
 			<label for="obs_notes">Notes:</label>
 			<textarea rows="2" id="obs_notes" maxlength="500"></textarea>
-			<a data-role="button" href="#" onclick="Redsky.EDDigital.Events.Observation_save()" />Save</a>
-			
+			<input type="submit" value="Save" />
 		</form>
 	</div>
 </div>
@@ -133,14 +134,14 @@
 		<a href="#page-walkthrough_delete" id="wlkt_delete" class="ui-btn-right" data-icon="delete" data-rel="dialog">Delete</a>
 	</div>
 	<div data-role="content">
-		<form id="walkthrough_properties" data-ajax="false" method="post" onsubmit="return(false);">
+		<form id="form-walkthrough_properties">
 			<label for="wlkt_title">Title:</label>
 			<input type="text" id="wlkt_title" />
 			<label for="wlkt_date">Date:</label>
 			<input type="text" id="wlkt_date" />
 			<label for="wlkt_notes">Notes:</label>
 			<textarea rows="2" id="wlkt_notes" maxlength="500"></textarea>
-			<a data-role="button" href="#" onclick="Redsky.EDDigital.Events.WalkthroughProperties_save()">Save</a>
+			<input type="submit" value="Save" />
 		</form>
 	</div>
 </div>
@@ -178,9 +179,11 @@
 	<div id="code_edit_header" data-role="header">
 	<h1>Add/Edit code</h1>
 	</div>
-	<div data-role="content">	
+	<div data-role="content">
+	<form id="form-code_edit">
 	<input type="text" id="code_description" placeholder="Enter new choice value" />
-	<a href="#" data-role="button" data-rel="dialog" onclick="Redsky.EDDigital.Events.Code_save()">Save</a>
+	<input type="submit" value="Save" />
+	</form>
 	</div>
 </div>
 <div data-role="page" id="page-codes_detail" data-title="Lookup Code Configuration">
@@ -207,7 +210,7 @@
 		<h1>School Configuration</h1>
 	</div>
 	<div data-role="content">	
-	<form id="school-config" data-ajax="false">
+	<form id="form-school_config">
 		<label for="sch_name">School Name:</label>
 		<input type="text" id="sch_name"></input>
 		<label for="sch_pricipal">Principal:</label>
@@ -224,7 +227,7 @@
 		<input type="text" id="sch_year"></input>
 		<label for="sch_notes">Notes:</label>
 		<textarea rows="2" id="sch_notes" maxlength="500"></textarea>
-		<a data-role="button" href="#" onclick="Redsky.EDDigital.Events.School_save()">Save</a>
+		<input type="submit" value="Save" />
 	</form>
 	</div>
 </div>
@@ -237,7 +240,7 @@
 		<h1>User Configuration</h1>
 	</div>
 	<div data-role="content">	
-	<form id="user-config" data-ajax="false">
+	<form id="form-user_config">
 		<label for="usr_fname">First Name:</label>
 		<input type="text" id="usr_fname"></input>
 		<label for="usr_lname">Last Name:</label>
@@ -253,7 +256,7 @@
 		<input type="hidden" id="usr_hashedpassword" />
 		<label for="usr_notes">Notes:</label>
 		<textarea rows="2" id="usr_notes" maxlength="500"></textarea>
-		<a data-role="button" href="#" onclick="Redsky.EDDigital.Events.User_save()">Save</a>
+		<input type="submit" value="Save" />
 	</form>
 	</div>
 </div>

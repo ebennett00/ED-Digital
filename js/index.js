@@ -19,18 +19,32 @@ var dbCurrentVersion = "0.4";
 Redsky.EDDigital.Literals.RTFLineBreak = " \\par ";
 Redsky.EDDigital.Literals.CSVSubvalueMark = "|";
 Redsky.EDDigital.Literals.OutputTimeFormat = "h:mm tt";
+Redsky.EDDigital.Literals.InternalTimeFormat = "HH:mm:ss";
 Redsky.EDDigital.Literals.OutputDateFormat = "yyyy MMM d";  
 Redsky.EDDigital.Literals.MobidateFormat = "MM/dd/yyyy";
 Redsky.EDDigital.Literals.StorageDateFormat = "yyyy-MM-dd";
-
+$(document).ready(function(){
+		$('#form-observation').submit(function(){Redsky.EDDigital.Events.Observation_save();return false;});
+		$('#form-login').submit(function(){Redsky.EDDigital.Events.Login_click();return false;});
+		$('#form-savereport').submit(function(){Redsky.EDDigital.Events.ReportRun_click();return false;});
+		$('#form-walkthrough_properties').submit(function(){Redsky.EDDigital.Events.WalkthroughProperties_save();return false;});
+		$('#form-code_edit').submit(function(){Redsky.EDDigital.Events.Code_save();return false;});
+		$('#form-school_config').submit(function(){Redsky.EDDigital.Events.School_save();return false;});
+		$('#form-user_config').submit(function(){Redsky.EDDigital.Events.User_save();return false;});
+});
+$(document).live('pageshow',function(){
+	$("input:text:visible:not(.preventdefaultfocus):first").focus();
+});
 $(document).delegate("#page-splash","pageshow", function(){
 	Redsky.EDDigital.Data.UpgradeDb(function(){
 		$.mobile.changePage("#page-password");
 	});
 });
+$(document).delegate("#page-password","pageshow", function(){
+});
 $(document).delegate("#page-user_config","pagebeforeshow", function(){
 	dataContext = new Redsky.EDDigital.Data.User(function(){
-		var form = $('#user-config');
+		var form = $('#form-user_config');
 		form.find("#usr_fname").val(dataContext.data.fname);
 		form.find("#usr_lname").val(dataContext.data.lname);
 		form.find("#usr_email").val(dataContext.data.email);
@@ -42,7 +56,7 @@ $(document).delegate("#page-user_config","pagebeforeshow", function(){
 });
 $(document).delegate("#page-school_config","pagebeforeshow", function(){
 	dataContext = new Redsky.EDDigital.Data.School(function(){
-	var form = $('#school-config');
+	var form = $('#form-school_config');
 	form.find("#sch_name").val(dataContext.data.name);
 	form.find("#sch_principal").val(dataContext.data.principal);
 	form.find("#sch_address").val(dataContext.data.address);
@@ -161,7 +175,7 @@ $(document).delegate("#page-observation","pagebeforeshow", function(){
         theme: 'default',
         display: 'modal',
         mode: 'scroller'
-    });  
+    }); 
 	Redsky.EDDigital.Data.Codefiles.BuildOptionList(1,"Select one",function(options){
 		$('#obs_teacher').empty().append(options).selectmenu('refresh');
 	});
@@ -185,7 +199,7 @@ $(document).delegate("#page-observation","pagebeforeshow", function(){
 	walkthroughid = getdata['wid'],
 	observationid = getdata['oid'];
 	dataContext = new Redsky.EDDigital.Data.Observation(walkthroughid,observationid,function(){
-		var form = $('#observation');
+		var form = $('#form-observation');
 		form.find('#obs_teacher').val(dataContext.data.teacher).selectmenu('refresh');
 		form.find('#obs_class').val(dataContext.data.classname).selectmenu('refresh');
 		form.find('#obs_time').val(dataContext.data.time?Date.parse(dataContext.data.time).toString(Redsky.EDDigital.Literals.OutputTimeFormat):'');
@@ -209,7 +223,7 @@ $(document).delegate("#page-walkthrough_properties","pagebeforeshow", function()
 	walkthroughid = getdata['id'];
 
 	dataContext = new Redsky.EDDigital.Data.Walkthrough(walkthroughid,function(){
-		var form = $('#walkthrough_properties');
+		var form = $('#form-walkthrough_properties');
 		form.find('#wlkt_title').val(dataContext.data.title);
 		form.find('#wlkt_date').val((Date.parse(dataContext.data.dt)||Date.today()).toString(Redsky.EDDigital.Literals.MobidateFormat));
 		form.find('#wlkt_notes').val(dataContext.data.notes);
@@ -218,7 +232,7 @@ $(document).delegate("#page-walkthrough_properties","pagebeforeshow", function()
 $(document).delegate("#page-savereport","pagebeforeshow", function(){
 	var search = $('#page-savereport').attr('data-url').split('?')[1];
 	var getdata = Redsky.EDDigital.ParseQueryString(search);
-	var reporttype = getdata['id']
+	var reporttype = getdata['id'];
 	$('#reportType').val(reporttype);
 	switch(reporttype)
 	{
@@ -242,7 +256,7 @@ Redsky.EDDigital.Events.Login_click = function(){
 		});
 }
 Redsky.EDDigital.Events.School_save = function(){
-		var form = $('#school-config');
+		var form = $('#form-school_config');
 		dataContext.data.name = form.find("#sch_name").val();
 		dataContext.data.principal = form.find("#sch_principal").val();
 		dataContext.data.address = form.find("#sch_address").val();
@@ -257,7 +271,7 @@ Redsky.EDDigital.Events.School_save = function(){
 		});
 }
 Redsky.EDDigital.Events.User_save = function(){
-		var form = $('#user-config');
+		var form = $('#form-user_config');
 		var password = $("#usr_password").val()==""?$("#usr_hashedpassword").val():CryptoJS.MD5($("#usr_password").val());
 		dataContext.data.fname = form.find("#usr_fname").val();		
 		dataContext.data.lname = form.find("#usr_lname").val();
@@ -285,12 +299,12 @@ Redsky.EDDigital.Events.Walkthrough_openProperties = function(){
 	return false;
 }
 Redsky.EDDigital.Events.Observation_save = function(){
-	var form = $('#observation');
+	var form = $('#form-observation');
 	var temp;
 	dataContext.data.teacher = form.find('#obs_teacher').val();	
 	dataContext.data.classname = form.find('#obs_class').val();
 	temp = form.find('#obs_time').val();
-	dataContext.data.time = temp?Date.parse(temp).toString('HH:mm:ss'):'';
+	dataContext.data.time = temp?Date.parse(temp).toString(Redsky.EDDigital.Literals.InternalTimeFormat):'';
 	dataContext.data.tasks = form.find('#obs_tasks').val();
 	dataContext.data.organizations = form.find('#obs_organizations').val();
 	dataContext.data.strategies = form.find('#obs_strategies').val();
@@ -313,7 +327,7 @@ Redsky.EDDigital.Events.Code_delete = function(){
 	});
 }
 Redsky.EDDigital.Events.WalkthroughProperties_save = function(){
-	var form = $('#walkthrough_properties');
+	var form = $('#form-walkthrough_properties');
 	dataContext.data.title = form.find('#wlkt_title').val();
 	dataContext.data.dt = (Date.parse(form.find('#wlkt_date').val())||Date.today()).toString(Redsky.EDDigital.Literals.StorageDateFormat);
 	dataContext.data.notes = form.find('#wlkt_notes').val();
@@ -464,14 +478,14 @@ Redsky.EDDigital.Data.Codefiles.GetCodeUsage = function(codeId, callback){
 	});
 }
 Redsky.EDDigital.Utils.GetUsername = function(callback){
-	Redsky.EDDigital.Utils.ExecuteScalar("select * from userconfig where id = ?",[1], function(resultrow){
+	Redsky.EDDigital.Utils.GetSingleRow("select * from userconfig where id = ?",[1], function(resultrow){
 		if(resultrow.fname && resultrow.lname)
 			callback(resultrow.fname.substring(0,1)+resultrow.lname);
 		else
 			callback('Anonymous');
 	});
 }
-Redsky.EDDigital.Utils.ExecuteScalar = function(SQL, params, callback){
+Redsky.EDDigital.Utils.GetSingleRow = function(SQL, params, callback){
 	var db = new Redsky.EDDigital.Data.Database();
 	db.transaction(function(tx)
 		{
@@ -777,7 +791,7 @@ Redsky.EDDigital.Data.Walkthrough.prototype.delete = function(callback){
 / Purpose: stores and retrieves observation data
 */
 Redsky.EDDigital.Data.Observation = function(walkthrough_id, observation_id, callback){
-	this.data = {'walkthrough_id':walkthrough_id, 'observation_id':observation_id};
+	this.data = {'walkthrough_id':walkthrough_id, 'observation_id':observation_id, 'time':Date.now().toString(Redsky.EDDigital.Literals.InternalTimeFormat)};
 	this.db = null;
 	this.init(callback);
 };
