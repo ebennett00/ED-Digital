@@ -706,7 +706,7 @@ Redsky.EDDigital.Data.Walkthrough.prototype.init = function(callback){
 	this.db = Redsky.EDDigital.Data.Database();
 	if(!this.data.id)
 	{
-		this.data.dt = Date();
+		this.data.dt = Date.today.toString(Redsky.EDDigital.Literals.StorageDateFormat);
 		this.data.notes = '';
 		Redsky.EDDigital.Utils.GetUsername(function(username){
 			this.data.title = username;
