@@ -4,6 +4,11 @@ $(document).bind("mobileinit", function(){
 	$.mobile.defaultPageTransition='slide';
 });
 
+window.onerror = function(msg, url, line){
+	$('#errormessage').html(msg);
+	$.mobile.changePage("#page-error", {role:'dialog'});
+}
+
 var Redsky = Redsky || {};
 Redsky.EDDigital = {};
 Redsky.EDDigital.Literals = {};
