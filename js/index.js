@@ -45,7 +45,8 @@ $(document).delegate("#page-splash","pageshow", function(){
 		$.mobile.changePage("#page-password");
 	});
 });
-$(document).delegate("#page-password","pageshow", function(){
+$(document).delegate("#page-password","pagebeforeshow", function(){
+	$('#password').val('');
 });
 $(document).delegate("#page-user_config","pagebeforeshow", function(){
 	dataContext = new Redsky.EDDigital.Data.User(function(){
@@ -353,9 +354,14 @@ Redsky.EDDigital.Events.ReportRun_click = function(){
 		});
 }
 Redsky.EDDigital.Events.Walkthrough_delete = function(){
-	dataContext.delete(function(){
-		$.mobile.changePage("#page-walkthrough_list");
-	});
+	dataContext.delete(
+		function(){
+			$.mobile.changePage("#page-walkthrough_list");
+		},
+		function(errmsg){
+			alert(errmsg);
+		}
+	);
 }
 Redsky.EDDigital.Events.Exec = function(){
 	var output = $('#console_out');
@@ -381,6 +387,7 @@ Redsky.EDDigital.Events.Exec = function(){
 	});
 	
 }
+
 Redsky.EDDigital.ParseQueryString = function(instring){
 	var datapairs = [],
 	outdata = {},
@@ -781,13 +788,13 @@ Redsky.EDDigital.Data.Walkthrough.prototype.update = function(callback){
 	[this.data.title, this.data.dt, this.data.notes, this.data.id],
 		callback());
 }
-Redsky.EDDigital.Data.Walkthrough.prototype.delete = function(callback){
+Redsky.EDDigital.Data.Walkthrough.prototype.delete = function(callback, errorcallback){
 	this.db.transaction(function(tx)
 		{
 			tx.executeSql("delete from observation where walkthrough_id = ?",[this.data.id]);
 			tx.executeSql("delete from walkthrough where id = ?",[this.data.id]);
 		}.bind(this),
-		null,
+		errorcallback,
 		callback);
 	
 }
