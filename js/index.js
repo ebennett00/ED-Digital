@@ -385,10 +385,11 @@ Redsky.EDDigital.Events.ReportRun_click = function(){
 				switch(device.platform)
 				{
 				case "iPhone":
+				case "iPad":
 					$('#SaveReportResult').append("Connect your device to iTunes to retrieve the report: " + filename)
 					break;
 				case "Android":
-					$('#SaveReportResult').append("Report written to the root directory of your device's internal storage: " +filename);
+					$('#SaveReportResult').append("Report written to the internal storage root: " +filename);
 					break;
 				default:
 					$('#SaveReportResult').append('<a href="'+ dataURI +'" target="_blank" download="'+filename+'">'+filenameandpath+'</a>');
