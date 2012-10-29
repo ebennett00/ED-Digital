@@ -1,6 +1,7 @@
 //set some global jquerymobile options
 $(document).bind("mobileinit", function(){
 	$.mobile.page.prototype.options.addBackBtn = true;
+	$.mobile.pageContainer = $("#jqmpagescontainer");
 	$.mobile.defaultPageTransition='slide';
 });
 
@@ -66,8 +67,13 @@ $(document).live('pageshow',function(){
 	$("input:text:visible:not(.preventdefaultfocus):first").focus();
 });
 $(document).delegate("#page-splash","pageshow", function(){
-	Redsky.EDDigital.Data.UpgradeDb(function(){
-		$.mobile.changePage("#page-password");
+	var message = $("#status")
+	Redsky.EDDigital.Data.UpgradeDb(
+	function(){
+		setTimeout(function(){$.mobile.changePage("#page-password");},1000);;
+	},
+	function(msg){
+		message.append(msg+"<br />");
 	});
 });
 $(document).delegate("#page-password","pagebeforeshow", function(){
@@ -370,12 +376,25 @@ Redsky.EDDigital.Events.WalkthroughProperties_save = function(){
 Redsky.EDDigital.Events.ReportRun_click = function(){
 	$('#SaveReportBegin').hide('fast');
 	$.mobile.loading('show',{text:'Generating Report', textVisible:true});
-	Redsky.EDDigital.Report.GenerateReport($('#reportType').val(),{},$('#reportName').val(),function(result, filenameandpath, filename, dataURI){
-		$.mobile.loading('hide');
-		$('#SaveReportResult').html(result);
-		if(filename)
-			$('#SaveReportResult').append('<a href="'+ dataURI +'" target="_blank" download="'+filename+'">'+filenameandpath+'</a>');
-		$('#SaveReportFinished').show('fast');
+	Redsky.EDDigital.Report.GenerateReport($('#reportType').val(),{},$('#reportName').val(),
+		function(result, filenameandpath, filename, dataURI){
+			$.mobile.loading('hide');
+			$('#SaveReportResult').html(result);
+			if(filename)
+			{
+				switch(device.platform)
+				{
+				case "iPhone":
+					$('#SaveReportResult').append("Connect your device to iTunes to retrieve the report: " + filename)
+					break;
+				case "Android":
+					$('#SaveReportResult').append("Report written to the root directory of your device's internal storage: " +filename);
+					break;
+				default:
+					$('#SaveReportResult').append('<a href="'+ dataURI +'" target="_blank" download="'+filename+'">'+filenameandpath+'</a>');
+				}
+			}
+			$('#SaveReportFinished').show('fast');
 		});
 }
 Redsky.EDDigital.Events.Walkthrough_delete = function(){
@@ -602,26 +621,31 @@ Redsky.EDDigital.Utils.PasswordCheck = function(lookupval,successcallback,failca
 	return(false);
 }
 
-Redsky.EDDigital.Data.UpgradeDb = function(callback){
-	var status = $("#status");
+Redsky.EDDigital.Data.UpgradeDb = function(callback, progresscallback){
 	//check for db support
 	if(!window.openDatabase)
-	{
-		status.html("Your browser does not support <a href='http://en.wikipedia.org/wiki/Web_SQL_Database' target='_blank'>WebSQL</a>.");
-		return;
-	}
+		return(progresscallback("Your browser does not support <a href='http://en.wikipedia.org/wiki/Web_SQL_Database' target='_blank'>WebSQL</a>."));
+	
 	db = window.openDatabase("ED", "", "Educational Directions", 200000);
 	if(db.version==dbCurrentVersion)
-		$.mobile.changePage("#page-password");
+	{
+		progresscallback("Database version is up-to-date.");
+		progresscallback("Launching application.");
+		return(callback());
+	}
 	if(db.version=="")
 	{
+		progresscallback("Database not found. Creating.");
 		db.changeVersion("",dbCurrentVersion,function(tx)
 		{
+			progresscallback("Creating User table");
 			tx.executeSql("CREATE TABLE userconfig (id integer primary key, fname text, lname text, email text, phone text, fax text, password text, notes text);");
 			tx.executeSql("INSERT INTO userconfig (id, password) values (1, 'd41d8cd98f00b204e9800998ecf8427e');");
 			tx.executeSql("INSERT INTO userconfig (id, fname, password) values (2, 'EDPW', '1b0a0ffb49f15ad34fb43ed41463a674');");
+			progresscallback("Creating school table");
 			tx.executeSql("CREATE TABLE schoolconfig(id integer primary key, name text, principal text, address text, city text, state text, zip text, year text, notes text);");
 			tx.executeSql("INSERT INTO schoolconfig (id) values (1);");
+			progresscallback("Creating lookup code tables");
 			tx.executeSql("CREATE TABLE lookupcodetables (id integer primary key, is_scale integer, description text);");
 			var lookupCodeTables = [[1,0,"Teacher"],[2,0,"School Year"],[3,0,"Class"],[4,0,"Grade Level"],[5,0,"Class Period"],[6,0,"Student Task"],[7,0,"Organization"],[8,0,"Strategy"],[9,1,"Engagement"]];
 			for(i=0;i<lookupCodeTables.length;i++)
@@ -637,17 +661,20 @@ Redsky.EDDigital.Data.UpgradeDb = function(callback){
 							  ];
 			for(i=0;i<lookupCodes.length;i++)
 				tx.executeSql("INSERT INTO lookupcodes (codeTable, description, scale_value, dflt) values (?,?,?,?);",lookupCodes[i],null,null);
+			progresscallback("Creating walkthrough table");
 			tx.executeSql("CREATE TABLE walkthrough (id integer primary key autoincrement, title text, dt text, notes text);");
+			progresscallback("Creating observation table");
 			tx.executeSql("CREATE TABLE observation (id integer primary key autoincrement, walkthrough_id integer, teacher integer, class integer, time text, tasks text, organizations text, strategies text, engagement integer, notes text);");
-			callback();
+			progresscallback("Finished database creation");
+			progresscallback("Launching application.");
+			return(callback());
 		},
-		function(err){
-			alert(err.message);
-		});
+		progresscallback
+		);
 	}
 	else
 	{
-		status.html("Hmm, looks like you're running an old version of the development database. Clear your browser's app cache and try again. (We'll perform a db upgrade when moving between live versions.)");
+		return(progresscallback("Hmm, looks like you're running an old version of the development database. Clear your browser's app cache and try again. (We'll perform a db upgrade when moving between live versions.)"));
 	}
 }
 Redsky.EDDigital.Data.Database = function(errorcallback){

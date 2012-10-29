@@ -14,7 +14,8 @@
 	<script src="js/md5.js"></script>
 	<script src="js/mobiscroll-2.0.1.custom.min.js"></script>
 </head> 
-<body> 
+<body>
+<div id="jqmpagescontainer">
 <div data-role="page" id="page-splash" data-title="Educational Directions">
 <div data-role="content">
 	<div class="center-wrapper">
@@ -26,13 +27,14 @@
 <div data-role="page" id="page-password" data-title="Educational Directions">
 	<div class="center-wrapper">
 		<img src="images\edlogo.png"  />
-			<form id="form-login">
-			<label for="password">Password</label>
-			<input type="password" name="password" id="password" />
-			<input type="submit" value="Log In" />
-			</form>
-			<div id="loginMessage"></div>
+		<form id="form-login">
+		<label for="password">Password</label>
+		<input type="password" name="password" id="password" />
+		<input type="submit" value="Log In" />
+		</form>
+		<div id="loginMessage"></div>
 	</div>
+	
 </div>
 <div data-role="page" id="page-main_menu" data-title="Educational Directions">
 	<div data-role="header">
@@ -284,6 +286,7 @@
 	<div data-role="footer">
 		<a href="#page-main_menu" data-icon="home">Main Menu</a>
 	</div>
+</div>
 </div>
 </body>
 </html>
